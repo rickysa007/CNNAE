@@ -243,7 +243,7 @@ def main():
     rnnae_train(autoencoder, input_train[0], mask_train)
     yhat = rnnae_test(autoencoder, input_test[0], mask_test)
     latent_space = latent_space_demo(encoder, input_train[0])
-    anomaly = isolation_forest(latent_space, 0)
+    anomalies = isolation_forest(latent_space, 0)
     reconstruction_graph(input_test[0], yhat, int(0.8*(data_GP.shape[0])))
 
 if __name__ == '__main__':

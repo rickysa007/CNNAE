@@ -1,1 +1,6 @@
 /OSC_json
+/import_graph
+/GP_graph
+/RNN_anomaly_graph
+/RNN_reconstruction_graph
+/RNN_latent_space_graph

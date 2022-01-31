@@ -3,11 +3,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 import keras
+import shutil
 from keras.layers import GRU, Dense
 from keras.layers import Bidirectional, BatchNormalization
 from keras.layers import TimeDistributed, RepeatVector
 from keras.callbacks import EarlyStopping
 from keras.optimizers import Adam
+from sklearn.ensemble import IsolationForest
 from tqdm import tqdm
 
 # Save graphs --done, refine functions, anamoly dectection, better masking, FT lc.
@@ -171,7 +173,20 @@ def latent_space_demo(encoder, input_tmp):
         plt.savefig(f'id {i} vs id {i+1}')
         plt.clf()
 
-    return
+    return latent_space
+
+def isolation_forest(latent_space, split):
+
+    clf = IsolationForest(n_estimators=10, warm_start=True)
+    anomaly = clf.fit_predict(latent_space)
+
+    os.chdir('/home/ricky/RNNAE/RNN_anomaly_graph')
+
+    for i, ano in enumerate(anomaly):
+        if ano == -1:
+            shutil.copy(f'/home/ricky/RNNAE/GP_graph/{data_GP[i+split][-1]}.pdf', f'/home/ricky/RNNAE/RNN_anomaly_graph/')
+
+    return anomaly
 
 def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
 
@@ -227,7 +242,8 @@ def main():
     autoencoder, encoder = rnnae(input)
     rnnae_train(autoencoder, input_train[0], mask_train)
     yhat = rnnae_test(autoencoder, input_test[0], mask_test)
-    latent_space_demo(encoder, input_train[0])
+    latent_space = latent_space_demo(encoder, input_train[0])
+    anomaly = isolation_forest(latent_space, 0)
     reconstruction_graph(input_test[0], yhat, int(0.8*(data_GP.shape[0])))
 
 if __name__ == '__main__':

@@ -135,7 +135,8 @@ class GP:
         plt.legend()
         plt.grid()
         plt.gca().invert_yaxis()
-        plt.savefig(f'/home/ricky/RNNAE/GP_graph/{self.SN_name}.pdf')
+        #plt.savefig(f'/home/ricky/RNNAE/GP_graph/{self.SN_name}.pdf')
+        plt.savefig(fr'C:\\Users\\ricky\\FYP\\RNNAE_public\\GP_graph\\{self.SN_name}.pdf')
         plt.clf()
 
         return
@@ -183,8 +184,9 @@ class GP:
 
 def main():
 
-    os.chdir('/home/ricky/RNNAE/import_npy')
-    print('Loading in import .npy')
+    #os.chdir('/home/ricky/RNNAE/import_npy')
+    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_npy')
+    print('Loading in import.npy')
 
     t_all = np.load('Time_all.npy', allow_pickle=True)
     m_all = np.load('Magnitude_Abs_all.npy', allow_pickle=True)
@@ -192,14 +194,15 @@ def main():
     claimedtype_all = np.load('Type_all.npy', allow_pickle=True)
     SN_name_all = np.load('SN_name.npy', allow_pickle=True)
 
-    os.chdir('/home/ricky/RNNAE/')
+    #os.chdir('/home/ricky/RNNAE/')
+    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\')
     print('Working on GP interpolaiton')
 
     data_all = [ [] for i in t_all]
 
     for i in tqdm(range(len(t_all))):
 
-        data_all[i] = GP(t_all[i], m_all[i], m_err_all[i], claimedtype_all[i], SN_name_all[i], ['g', 'r', 'i']).GP_interpolate(normalization=True, LC_graph=False)
+        data_all[i] = GP(t_all[i], m_all[i], m_err_all[i], claimedtype_all[i], SN_name_all[i], ['g', 'r', 'i']).GP_interpolate(normalization=True, LC_graph=True)
         '''if data_all[i] == None:
             print(i)'''
 

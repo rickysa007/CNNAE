@@ -1,3 +1,4 @@
+import absl.logging
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,9 +13,11 @@ from keras.optimizers import Adam
 from sklearn.ensemble import IsolationForest
 from tqdm import tqdm
 
+absl.logging.set_verbosity(absl.logging.ERROR)
+
 # Save graphs --done, refine functions, anamoly dectection, better masking, FT lc.
 
-os.chdir('/home/ricky/RNNAE/')
+os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
 
 data_GP = np.load('data_GP.npy', allow_pickle=True)
 data_GP = np.array(data_GP)
@@ -142,7 +145,7 @@ def rnnae_train(autoencoder, input_tmp, mask_tmp):
 
     history = autoencoder.fit(x=[input_tmp, mask_tmp], y=None,
                             validation_split = 0.1,
-                            epochs=2,
+                            epochs=20,
                             verbose=1,
                             callbacks=[callbacks])
 
@@ -165,12 +168,12 @@ def latent_space_demo(encoder, input_tmp):
 
     latent_space = encoder.predict(input_tmp, verbose=1)
 
-    os.chdir('/home/ricky/RNNAE/RNN_latent_space_graph')
+    os.chdir('C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_latent_space_graph')
 
     for i in range(latent_space.shape[1] - 1):
         plt.grid()
         plt.scatter(latent_space[:,i], latent_space[:,i+1], s=8)
-        plt.savefig(f'id {i} vs id {i+1}')
+        plt.savefig(f'id_{i}_vs_id_{i+1}.pdf')
         plt.clf()
 
     return latent_space
@@ -178,13 +181,16 @@ def latent_space_demo(encoder, input_tmp):
 def isolation_forest(latent_space, split):
 
     clf = IsolationForest(n_estimators=10, warm_start=True)
-    anomaly = clf.fit_predict(latent_space)
+    clf.fit(latent_space)
+    anomaly = clf.score_samples(latent_space)
+    anomaly_id = np.argsort(anomaly)
 
-    os.chdir('/home/ricky/RNNAE/RNN_anomaly_graph')
+    #os.chdir('/home/ricky/RNNAE/RNN_anomaly_graph')
+    #os.chdir(r'C:\Users\ricky\FYP\RNN_anomaly_graph')
 
-    for i, ano in enumerate(anomaly):
-        if ano == -1:
-            shutil.copy(f'/home/ricky/RNNAE/GP_graph/{data_GP[i+split][-1]}.pdf', f'/home/ricky/RNNAE/RNN_anomaly_graph/')
+    for i, ano in enumerate(anomaly_id):
+        #shutil.copy(f'/home/ricky/RNNAE/GP_graph/{data_GP[i+split][-1]}.pdf', f'/home/ricky/RNNAE/RNN_anomaly_graph/')
+        shutil.copy(f'C:\\Users\\ricky\\FYP\\RNNAE_public\\GP_graph\\{data_GP[ano+split][-1]}.pdf', f'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_anomaly_graph\\{i}_{data_GP[ano+split][-1]}.pdf')
 
     return anomaly
 
@@ -193,17 +199,15 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
     color1 = ['darkviolet', 'seagreen', 'crimson', 'maroon']
     color2 = ['darkmagenta', 'darkgreen', 'firebrick', 'darkred']
 
-    print('Generating reconstruction graphs')
+    for i in range(input_tmp.shape[0]):
 
-    for i in tqdm(range(input_tmp.shape[0])):
+        os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_reconstruction_graph')
 
-        os.chdir('/home/ricky/RNNAE/RNN_reconstruction_graph')
-
-        isExist = os.path.exists(f'./{data_GP[i][-1]}')
+        isExist = os.path.exists(f'.\\{data_GP[i][-1]}')
 
         if not isExist:
-            os.makedirs(f'./{data_GP[i][-1]}')
-            os.chdir(f'./{data_GP[i][-1]}')
+            os.makedirs(f'.\\{data_GP[i][-1]}')
+            os.chdir(f'.\\{data_GP[i][-1]}')
 
         for j, filter in enumerate(filters):
             fig = plt.figure(figsize=(12, 8))
@@ -228,10 +232,10 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
             plt.scatter(input_tmp[i,:,0], yhat[i,:,j], s=12, marker='X', color=color2[j], label='reconstruction'.format('x'))
             
             plt.legend()
-            
-            plt.savefig(f'./{data_GP[i][-1]}_{filter}_band.pdf')
 
-            plt.clf()
+            plt.savefig(f'.\\{data_GP[i][-1]}_{filter}_band.pdf')
+
+            plt.close()
 
     return
 
@@ -241,10 +245,12 @@ def main():
     mask_test = masking(input_test[0], int(0.8*(data_GP.shape[0])))
     autoencoder, encoder = rnnae(input)
     rnnae_train(autoencoder, input_train[0], mask_train)
+    autoencoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_autoencoder_model')
+    encoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_encoder_model')
     yhat = rnnae_test(autoencoder, input_test[0], mask_test)
     latent_space = latent_space_demo(encoder, input_train[0])
-    anomalies = isolation_forest(latent_space, 0)
-    reconstruction_graph(input_test[0], yhat, int(0.8*(data_GP.shape[0])))
+    #anomalies = isolation_forest(latent_space, 0)
+    #reconstruction_graph(input_test[0], yhat, int(0.8*(data_GP.shape[0])))
 
 if __name__ == '__main__':
     main()

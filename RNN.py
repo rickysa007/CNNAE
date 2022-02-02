@@ -145,7 +145,7 @@ def rnnae_train(autoencoder, input_tmp, mask_tmp):
 
     history = autoencoder.fit(x=[input_tmp, mask_tmp], y=None,
                             validation_split = 0.1,
-                            epochs=20,
+                            epochs=2,
                             verbose=1,
                             callbacks=[callbacks])
 
@@ -228,8 +228,8 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
 
             #plt.errorbar(data_GP[i+split][0], data_GP[i+split][j+1], y_err=data_GP[i+split][j+4], fmt='v')
 
-            plt.scatter(input_tmp[i,:,0], input_tmp[i,:,j+1], s=2, marker='o', color=color1[j], label='test data'.format('o'))
-            plt.scatter(input_tmp[i,:,0], yhat[i,:,j], s=12, marker='X', color=color2[j], label='reconstruction'.format('x'))
+            plt.scatter(input_tmp[i,:,0], input_tmp[i,:,j+1], s=2, marker='o', color=color1[j], label=f'test data'.format('o'))
+            plt.scatter(input_tmp[i,:,0], yhat[i,:,j], s=12, marker='X', color=color2[j], label=f'reconstruction'.format('x'))
             
             plt.legend()
 
@@ -240,15 +240,30 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
     return
 
 def main():
+
     input, input_train, input_test, type_train, type_test = create_input()
     mask_train = masking(input_train[0], 0)
     mask_test = masking(input_test[0], int(0.8*(data_GP.shape[0])))
+
+    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_npy')
+    np.save('input.npy', np.array(input, dtype=object))
+    np.save('input_train.npy', np.array(input_train, dtype=object))
+    np.save('input_test.npy', np.array(input_test, dtype=object))
+    np.save('type_train.npy', np.array(type_train, dtype=object))
+    np.save('type_test.npy', np.array(type_test, dtype=object))
+    np.save('mask_train.npy', np.array(mask_train, dtype=object))
+    np.save('mask_test.npy', np.array(mask_test, dtype=object))
+
     autoencoder, encoder = rnnae(input)
     rnnae_train(autoencoder, input_train[0], mask_train)
+
     autoencoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_autoencoder_model')
     encoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_encoder_model')
-    yhat = rnnae_test(autoencoder, input_test[0], mask_test)
-    latent_space = latent_space_demo(encoder, input_train[0])
+
+    print('DONE!')
+
+    #yhat = rnnae_test(autoencoder, input_test[0], mask_test)
+    #latent_space = latent_space_demo(encoder, input_train[0])
     #anomalies = isolation_forest(latent_space, 0)
     #reconstruction_graph(input_test[0], yhat, int(0.8*(data_GP.shape[0])))
 

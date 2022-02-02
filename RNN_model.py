@@ -153,7 +153,9 @@ def rnnae_train(autoencoder, input_tmp, mask_tmp):
     plt.plot(history.history['val_loss'])
     plt.grid()
     plt.ylim(0, 0.05)
-    plt.show()
+
+    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
+    plt.savefig('training history.pdf')
 
     return
 

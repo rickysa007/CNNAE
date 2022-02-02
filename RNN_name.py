@@ -145,7 +145,7 @@ def rnnae_train(autoencoder, input_tmp, mask_tmp):
 
     history = autoencoder.fit(x=[input_tmp, mask_tmp], y=None,
                             validation_split = 0.1,
-                            epochs=2,
+                            epochs=1000,
                             verbose=1,
                             callbacks=[callbacks])
 

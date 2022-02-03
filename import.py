@@ -174,8 +174,8 @@ class LC_Preprocess:
         plt.legend()
         plt.grid()
         plt.gca().invert_yaxis()
-        #plt.savefig(f'/home/ricky/RNNAE/import_graph/{self.SN_name}.pdf')
-        plt.savefig(fr'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_graph\\{self.SN_name}.pdf')
+        plt.savefig(f'/home/ricky/RNNAE/import_graph/{self.SN_name}.pdf')
+        #plt.savefig(fr'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_graph\\{self.SN_name}.pdf')
         plt.clf()
 
 
@@ -228,8 +228,8 @@ class LC_Preprocess:
 
 def main():
 
-    #os.chdir('/home/ricky/RNNAE/OSC_json') # Where the .json files are stored
-    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\OSC_json')
+    os.chdir('/home/ricky/RNNAE/OSC_json') # Where the .json files are stored
+    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\OSC_json')
     print('The current working directory is', os.getcwd())
 
     filenames = glob.glob('*.json')
@@ -268,7 +268,8 @@ def main():
 
                 num_extracted_SN += 1
 
-    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_npy')
+    os.chdir('/home/ricky/RNNAE/import_npy')
+    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_npy')
     print('The current working directory is', os.getcwd())
 
     np.save('Time_all.npy', np.array(t_all, dtype=object))

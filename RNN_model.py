@@ -3,13 +3,13 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import keras
 import shutil
-from keras.layers import GRU, Dense
-from keras.layers import Bidirectional, BatchNormalization
-from keras.layers import TimeDistributed, RepeatVector
-from keras.callbacks import EarlyStopping
-from keras.optimizers import Adam
+from tensorflow import keras
+from tensorflow.keras.layers import GRU, Dense
+from tensorflow.keras.layers import Bidirectional, BatchNormalization
+from tensorflow.keras.layers import TimeDistributed, RepeatVector
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.optimizers import Adam
 from sklearn.ensemble import IsolationForest
 from tqdm import tqdm
 
@@ -17,7 +17,8 @@ absl.logging.set_verbosity(absl.logging.ERROR)
 
 # Save graphs --done, refine functions, anamoly dectection, better masking, FT lc.
 
-os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
+#os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
+os.chdir('/home/ricky/RNNAE')
 
 data_GP = np.load('data_GP.npy', allow_pickle=True)
 data_GP = np.array(data_GP)
@@ -154,7 +155,8 @@ def rnnae_train(autoencoder, input_tmp, mask_tmp):
     plt.grid()
     plt.ylim(0, 0.05)
 
-    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
+    os.chdir('/home/ricky/RNNAE')
+    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
     plt.savefig('training history.pdf')
 
     return
@@ -170,7 +172,8 @@ def latent_space_demo(encoder, input_tmp):
 
     latent_space = encoder.predict(input_tmp, verbose=1)
 
-    os.chdir('C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_latent_space_graph')
+    os.chdir('/home/ricky/RNNAE/RNN_latent_space_graph')
+    #os.chdir('C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_latent_space_graph')
 
     for i in range(latent_space.shape[1] - 1):
         plt.grid()
@@ -191,8 +194,8 @@ def isolation_forest(latent_space, split):
     #os.chdir(r'C:\Users\ricky\FYP\RNN_anomaly_graph')
 
     for i, ano in enumerate(anomaly_id):
-        #shutil.copy(f'/home/ricky/RNNAE/GP_graph/{data_GP[i+split][-1]}.pdf', f'/home/ricky/RNNAE/RNN_anomaly_graph/')
-        shutil.copy(f'C:\\Users\\ricky\\FYP\\RNNAE_public\\GP_graph\\{data_GP[ano+split][-1]}.pdf', f'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_anomaly_graph\\{i}_{data_GP[ano+split][-1]}.pdf')
+        shutil.copy(f'/home/ricky/RNNAE/GP_graph/{data_GP[ano+split][-1]}.pdf', f'/home/ricky/RNNAE/RNN_anomaly_graph/{i}_{data_GP[ano+split][-1]}.pdf')
+        #shutil.copy(f'C:\\Users\\ricky\\FYP\\RNNAE_public\\GP_graph\\{data_GP[ano+split][-1]}.pdf', f'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_anomaly_graph\\{i}_{data_GP[ano+split][-1]}.pdf')
 
     return anomaly
 
@@ -203,13 +206,14 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
 
     for i in range(input_tmp.shape[0]):
 
-        os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_reconstruction_graph')
+        os.chdir('/home/ricky/RNNAE/RNN_reconstruction_graph')
+        #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_reconstruction_graph')
 
-        isExist = os.path.exists(f'.\\{data_GP[i][-1]}')
+        isExist = os.path.exists(f'./{data_GP[i][-1]}')
 
         if not isExist:
-            os.makedirs(f'.\\{data_GP[i][-1]}')
-            os.chdir(f'.\\{data_GP[i][-1]}')
+            os.makedirs(f'./{data_GP[i][-1]}')
+            os.chdir(f'./{data_GP[i][-1]}')
 
         for j, filter in enumerate(filters):
             fig = plt.figure(figsize=(12, 8))
@@ -235,7 +239,7 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
             
             plt.legend()
 
-            plt.savefig(f'.\\{data_GP[i][-1]}_{filter}_band.pdf')
+            plt.savefig(f'./{data_GP[i][-1]}_{filter}_band.pdf')
 
             plt.close()
 
@@ -247,7 +251,8 @@ def main():
     mask_train = masking(input_train[0], 0)
     mask_test = masking(input_test[0], int(0.8*(data_GP.shape[0])))
 
-    os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_npy')
+    os.chdir('/home/ricky/RNNAE/RNN_npy')
+    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_npy')
     np.save('input.npy', np.array(input, dtype=object))
     np.save('input_train.npy', np.array(input_train, dtype=object))
     np.save('input_test.npy', np.array(input_test, dtype=object))
@@ -259,8 +264,11 @@ def main():
     autoencoder, encoder = rnnae(input)
     rnnae_train(autoencoder, input_train[0], mask_train)
 
-    autoencoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_autoencoder_model')
-    encoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_encoder_model')
+    autoencoder.save('/home/ricky/RNNAE/RNN_autoencoder_model')
+    encoder.save('/home/ricky/RNNAE/RNN_encoder_model')
+
+    #autoencoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_autoencoder_model')
+    #encoder.save(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\RNN_encoder_model')
 
     print('DONE!')
 

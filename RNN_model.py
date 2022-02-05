@@ -20,8 +20,8 @@ absl.logging.set_verbosity(absl.logging.ERROR)
 #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public')
 os.chdir('/home/ricky/RNNAE')
 
-data_GP = np.load('data_GP.npy', allow_pickle=True)
-data_GP = np.array(data_GP)
+data_GP = np.array(np.load('data_GP.npy', allow_pickle=True))
+data_meta_GP = np.array(np.load('data_meta_GP.npy', allow_pickle=True))
 
 def create_input(split_portion=0.8, num_of_type=1):
 

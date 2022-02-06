@@ -34,6 +34,7 @@ class GP:
         self.data_m_err = [ [] for filter in self.filters]
 
         self.data = [ [] for i in range(1 + len(self.filters)*2)]
+        self.data_plot = [ [] for i in range(1 + len(self.filters)*2)]
         self.data_meta = [ [] for i in range(3)]
 
         self.y_mean = 0
@@ -120,15 +121,20 @@ class GP:
         
         plt.plot(figsize=(16,12))
 
+        self.data_plot[0] = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
+
         for i, filter in enumerate(self.filters):
 
             if self.y_range != 0:
                 self.m_tmp = (self.m[i] - self.y_mean) / self.y_range
                 self.m_err_tmp = self.m_err[i] / self.y_range
 
+            self.data_plot[i+1] = self.data[i+1][:self.data_meta[-3]]
+            self.data_plot[i+len(self.filters)+1] = self.data[i+len(self.filters)+1][:self.data_meta[-3]]
+
             plt.errorbar(np.array(self.t[i]), np.array(self.m_tmp), np.array(self.m_err_tmp), label=filter, color=colors[i], fmt='.')
-            plt.plot(self.data[0], self.data[i+1], label=filter, color = colors[i], alpha=0.8)
-            plt.fill_between(self.data[0], self.data[i+1] - self.data[i+len(self.filters)+1], self.data[i+1] + self.data[i+len(self.filters)+1], color=colors[i], alpha=0.2)
+            plt.plot(self.data_plot[0], self.data_plot[i+1], label=filter, color = colors[i], alpha=0.8)
+            plt.fill_between(self.data_plot[0], self.data_plot[i+1] - self.data_plot[i+len(self.filters)+1], self.data_plot[i+1] + self.data_plot[i+len(self.filters)+1], color=colors[i], alpha=0.2)
 
         plt.title(f'{self.SN_name}, {self.type}')
         plt.xlim(-50, 135)  

@@ -39,6 +39,7 @@ absl.logging.set_verbosity(absl.logging.ERROR)
 
 # Save graphs --done, refine functions, anamoly dectection --done, better masking --done, Fourier Transform of lc.
 
+
 os.chdir('/home/ricky/RNNAE')
 
 data_GP = np.array(np.load('data_GP.npy', allow_pickle=True))

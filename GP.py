@@ -33,7 +33,9 @@ class GP:
         self.data_m = [ [] for filter in self.filters]
         self.data_m_err = [ [] for filter in self.filters]
 
-        self.data = [ [] for i in range(1 + len(self.filters)*2 + 3)]
+        self.data = [ [] for i in range(1 + len(self.filters)*2)]
+        self.data_plot = [ [] for i in range(1 + len(self.filters)*2)]
+        self.data_meta = [ [] for i in range(3)]
 
         self.y_mean = 0
         self.y_range = 0
@@ -74,7 +76,7 @@ class GP:
 
     def lc_padding(self):
 
-        self.lc_len = np.arange(self.lc_length_prepeak, self.lc_length_postpeak, 1)
+        self.lc_len = self.lc_length_postpeak - self.lc_length_prepeak
         self.data_t = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
         self.data_t_len = len(self.data_t)
 
@@ -82,25 +84,26 @@ class GP:
 
             self.data_m[i] = self.GP_pred[int((i)*len(self.GP_pred)/len(self.filters)):int((i+1)*len(self.GP_pred)/len(self.filters))]
             self.data_m_err[i] = np.sqrt(self.GP_var[int((i)*len(self.GP_var)/len(self.filters)):int((i+1)*len(self.GP_var)/len(self.filters))])
-            
-            for j in range(len(self.lc_len) - len(self.data_m[i])):
 
-                self.data_m[i] = np.append(self.data_m[i], self.data_m[i][-1])
-                self.data_m_err[i] = np.append(self.data_m_err[i], self.data_m_err[i][-1])
+            for j in range(self.lc_len - len(self.data_m[i])):
 
-        for i in range(len(self.lc_len) - self.data_t_len):
-            self.data_t = np.append(self.data_t, self.data_t[-1] + 1)
+                self.data_m[i] = np.append(self.data_m[i], 0)
+                self.data_m_err[i] = np.append(self.data_m_err[i], 0)
+
+        for i in range(self.lc_len - self.data_t_len):
+            self.data_t = np.append(self.data_t, 0)
 
         self.data[0] = self.data_t
         for i in range(len(self.filters)):
             self.data[i+1] = self.data_m[i]
         for i in range(len(self.filters)):
             self.data[i+len(self.filters)+1] = self.data_m_err[i]
-        self.data[-3] = self.data_t_len
-        self.data[-2] = self.type
-        self.data[-1] = self.SN_name
 
-        return self.data
+        self.data_meta[0] = self.data_t_len
+        self.data_meta[1] = self.type
+        self.data_meta[2] = self.SN_name
+
+        return self.data, self.data_meta
 
 
     def normalization(self):
@@ -118,15 +121,20 @@ class GP:
         
         plt.plot(figsize=(16,12))
 
+        self.data_plot[0] = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
+
         for i, filter in enumerate(self.filters):
 
             if self.y_range != 0:
                 self.m_tmp = (self.m[i] - self.y_mean) / self.y_range
                 self.m_err_tmp = self.m_err[i] / self.y_range
 
+            self.data_plot[i+1] = self.data[i+1][:self.data_meta[-3]]
+            self.data_plot[i+len(self.filters)+1] = self.data[i+len(self.filters)+1][:self.data_meta[-3]]
+
             plt.errorbar(np.array(self.t[i]), np.array(self.m_tmp), np.array(self.m_err_tmp), label=filter, color=colors[i], fmt='.')
-            plt.plot(self.data[0], self.data[i+1], label=filter, color = colors[i], alpha=0.8)
-            plt.fill_between(self.data[0], self.data[i+1] - self.data[i+len(self.filters)+1], self.data[i+1] + self.data[i+len(self.filters)+1], color=colors[i], alpha=0.2)
+            plt.plot(self.data_plot[0], self.data_plot[i+1], label=filter, color = colors[i], alpha=0.8)
+            plt.fill_between(self.data_plot[0], self.data_plot[i+1] - self.data_plot[i+len(self.filters)+1], self.data_plot[i+1] + self.data_plot[i+len(self.filters)+1], color=colors[i], alpha=0.2)
 
         plt.title(f'{self.SN_name}, {self.type}')
         plt.xlim(-50, 135)  
@@ -172,14 +180,14 @@ class GP:
             self.GP_pred, self.GP_var = self.gp.predict(self.y, self.x_GP_pred, return_var=True)
         except Exception:
             #print('failed to converge')
-            return None
+            return None, None
 
-        self.data = GP.lc_padding(self)
+        self.data, self.data_meta = GP.lc_padding(self)
 
         if kwargs['LC_graph']:
             GP.lc_graph(self)
 
-        return self.data
+        return self.data, self.data_meta
 
 
 def main():
@@ -199,17 +207,28 @@ def main():
     print('Working on GP interpolaiton')
 
     data_all = [ [] for i in t_all]
+    data_meta_all = [ [] for i in t_all]
 
     for i in tqdm(range(len(t_all))):
 
-        data_all[i] = GP(t_all[i], m_all[i], m_err_all[i], claimedtype_all[i], SN_name_all[i], ['g', 'r', 'i']).GP_interpolate(normalization=True, LC_graph=True)
+        data_all[i], data_meta_all[i] = GP(
+            t_all[i], m_all[i], m_err_all[i], 
+            claimedtype_all[i], SN_name_all[i], 
+            ['g', 'r', 'i']
+            ).GP_interpolate(
+                normalization=True, LC_graph=True
+                )
+        
         '''if data_all[i] == None:
             print(i)'''
-
+    
     data_all = list(filter(None, data_all))
+    data_meta_all = list(filter(None, data_meta_all))
+
     print(f'There are in total successful {len(data_all)} GP interpolated SNe, and {len(t_all) - len(data_all)} SNe not successful')
 
     np.save('data_GP.npy', np.array(data_all, dtype=object))
+    np.save('data_meta_GP.npy', np.array(data_meta_all, dtype=object))
 
     print('End of GP.py')
 

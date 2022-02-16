@@ -9,7 +9,9 @@ from tqdm import tqdm
 class GP:
 
 
-    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.724, 6.202, 7.673], lc_length_prepeak=-50, lc_length_postpeak=135):
+    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.724, 6.202, 7.673], lc_length_prepeak=-200, lc_length_postpeak=200):
+
+        filters_EWM = [3.54, 4.724, 6.202, 7.673, 9.05, 10.095]
 
         self.t = t
         self.m = m
@@ -118,6 +120,8 @@ class GP:
 
 
     def lc_graph(self, colors = ['darkcyan', 'limegreen', 'crimson']):
+
+        #colors = ['indigo','darkcyan', 'limegreen', 'darkorange', 'crimson', 'maroon']
         
         plt.plot(figsize=(16,12))
 
@@ -137,7 +141,7 @@ class GP:
             plt.fill_between(self.data_plot[0], self.data_plot[i+1] - self.data_plot[i+len(self.filters)+1], self.data_plot[i+1] + self.data_plot[i+len(self.filters)+1], color=colors[i], alpha=0.2)
 
         plt.title(f'{self.SN_name}, {self.type}')
-        plt.xlim(-50, 135)  
+        plt.xlim(self.lc_length_prepeak, self.lc_length_postpeak)  
         plt.xlabel('time (day)')
         plt.ylabel('absolute magnitude')
         plt.legend()
@@ -210,6 +214,8 @@ def main():
     data_meta_all = [ [] for i in t_all]
 
     for i in tqdm(range(len(t_all))):
+
+        #LC_graph_bool = np.random.rand(1) > 0.99
 
         data_all[i], data_meta_all[i] = GP(
             t_all[i], m_all[i], m_err_all[i], 

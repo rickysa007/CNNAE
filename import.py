@@ -119,7 +119,7 @@ class QC:
 class LC_Preprocess:
 
 
-    def __init__(self, filename, filters, json_data):
+    def __init__(self, filename, filters, json_data, lc_length_prepeak=-50, lc_length_postpeak=135):
 
         self.filename = filename
 
@@ -129,6 +129,9 @@ class LC_Preprocess:
         self.filters = filters
         self.json_data = json_data
 
+        self.lc_length_prepeak = lc_length_prepeak
+        self.lc_length_postpeak = lc_length_postpeak
+
         self.band = []
         self.claimedtype = 0
 
@@ -137,7 +140,7 @@ class LC_Preprocess:
         self.m_err = [ [] for filter in self.filters]
 
 
-    def peak_alignment(self, lc_length_prepeak=-50, lc_length_postpeak=135):
+    def peak_alignment(self):
 
         self.m_max_id = np.argmin(self.m[1])
         self.t_max = self.t[1][self.m_max_id]
@@ -146,11 +149,11 @@ class LC_Preprocess:
 
             self.t[i] = np.array(self.t[i]) - self.t_max
 
-            self.t[i]     = np.delete(self.t[i], np.where(self.t[i] > lc_length_postpeak))
+            self.t[i]     = np.delete(self.t[i], np.where(self.t[i] > self.lc_length_postpeak))
             self.m[i]     = self.m[i][0:len(self.t[i])]
             self.m_err[i] = self.m_err[i][0:len(self.t[i])]
 
-            self.t[i]     = np.delete(self.t[i], np.where(self.t[i] < lc_length_prepeak))
+            self.t[i]     = np.delete(self.t[i], np.where(self.t[i] < self.lc_length_prepeak))
             self.m[i]     = self.m[i][len(self.m[i]) - len(self.t[i]):]
             self.m_err[i] = self.m_err[i][len(self.m_err[i]) - len(self.t[i]):]
 
@@ -168,7 +171,7 @@ class LC_Preprocess:
             plt.errorbar(np.array(self.t[i]), np.array(self.m[i]), np.array(self.m_err[i]), label=filter, color=colors[i], fmt='.')
         
         plt.title(f'{self.SN_name}, {self.claimedtype}')
-        plt.xlim(-50, 135)
+        plt.xlim(self.lc_length_prepeak, self.lc_length_postpeak)
         plt.xlabel('time (day)')
         plt.ylabel('absolute magnitude')
         plt.legend()

@@ -9,9 +9,9 @@ from tqdm import tqdm
 class GP:
 
 
-    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.724, 6.202, 7.673], lc_length_prepeak=-200, lc_length_postpeak=200):
+    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.724, 6.202, 7.673], lc_length_prepeak=-50, lc_length_postpeak=150):
 
-        filters_EWM = [3.54, 4.724, 6.202, 7.673, 9.05, 10.095]
+        #filters_EWM = [3.54, 4.724, 6.202, 7.673, 9.05, 10.095]
 
         self.t = t
         self.m = m
@@ -53,14 +53,14 @@ class GP:
 
     def x_GP_pred_generator(self):
 
-        self.t_min = 0
-        self.t_max = 0
+        self.t_min = self.t[0][0]
+        self.t_max = self.t[0][-1]
 
-        for i, filter in enumerate(self.filters):
-            if self.t[i][0] < self.t_min:
-                self.t_min = self.t[i][0]
-            if self.t[i][-1] > self.t_max:
-                self.t_max = self.t[i][-1]
+        for i in range(len(self.filters) - 1):
+            if self.t[i+1][0] < self.t[i][0]:
+                self.t_min = self.t[i+1][0]
+            if self.t[i+1][-1] > self.t[i][-1]:
+                self.t_max = self.t[i+1][-1]
 
         self.x_tmp = []
         self.filters_num_tmp = []
@@ -187,6 +187,21 @@ class GP:
             return None, None
 
         self.data, self.data_meta = GP.lc_padding(self)
+
+        '''#Final quality check
+        diff = 0
+        err_ratio = 0
+
+        for i in range(len(self.filters) - 1):
+
+            diff += np.sum(self.data[i+2] - self.data[i+1])
+            err_ratio += np.sum(self.data[i+4])
+
+        diff_norm = abs(diff*self.lc_len/self.data_t_len)
+        err_ratio_norm = abs(err_ratio*self.lc_len/self.data_t_len)
+
+        if diff_norm/err_ratio_norm < 1:
+            return None, None'''
 
         if kwargs['LC_graph']:
             GP.lc_graph(self)

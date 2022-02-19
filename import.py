@@ -60,7 +60,7 @@ class QC:
             return False
     
 
-    def avoid_empty_SN(self, num=40, lc_length_prepeak=-50, lc_length_postpeak=135):
+    def avoid_empty_SN(self, num=40, lc_length_prepeak=-50, lc_length_postpeak=150):
 
         '''
         Avoid SN that does not contain more than 40 data points at the specified band
@@ -119,7 +119,7 @@ class QC:
 class LC_Preprocess:
 
 
-    def __init__(self, filename, filters, json_data, lc_length_prepeak=-50, lc_length_postpeak=135):
+    def __init__(self, filename, filters, json_data, lc_length_prepeak=-50, lc_length_postpeak=150):
 
         self.filename = filename
 

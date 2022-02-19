@@ -165,9 +165,9 @@ def rnnae2(input):
 
     input_seq = keras.Input(shape=(input[0].shape[1], input[0].shape[2]))
 
-    x = Masking(mask_value=0., input_shape=(185, 7))(input_seq)
+    x = Masking(mask_value=0., input_shape=(input[0].shape[1], input[0].shape[2]))(input_seq)
     x = BatchNormalization()(x)
-    x = Bidirectional(GRU(185, activation='tanh', return_sequences=True))(x)
+    x = Bidirectional(GRU(input[0].shape[1], activation='tanh', return_sequences=True))(x)
     x = BatchNormalization()(x)
     x = Bidirectional(GRU(50, activation='tanh', return_sequences=True))(x)
     x = BatchNormalization()(x)
@@ -177,7 +177,7 @@ def rnnae2(input):
     x = BatchNormalization()(x)
     x = Bidirectional(GRU(50, activation='tanh', return_sequences=True))(x)
     x = BatchNormalization()(x)
-    x = Bidirectional(GRU(185, activation='tanh', return_sequences=True))(x)
+    x = Bidirectional(GRU(input[0].shape[1], activation='tanh', return_sequences=True))(x)
     x = BatchNormalization()(x)
     decoded = TimeDistributed(Dense(input[0].shape[2]-3-1))(x)
 

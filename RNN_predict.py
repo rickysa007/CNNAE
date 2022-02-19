@@ -123,7 +123,7 @@ def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
             plt.xlabel('Timestep', fontsize=15)
             plt.ylabel('Absolute Magnitude', fontsize=15)
 
-            plt.xlim(-50, 185)
+            plt.xlim(-50, 200)
 
             plt.title(f'{data_meta_GP[i+split][-1]}, {data_meta_GP[i+split][-2]}, {filter}')
 

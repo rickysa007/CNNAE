@@ -23,7 +23,6 @@ def mask_unused_gpus(leave_unmasked=1):
 
 mask_unused_gpus()
 
-
 import absl.logging
 import matplotlib.pyplot as plt
 import numpy as np
@@ -92,10 +91,10 @@ def isolation_forest(latent_space, n_tree, split):
 
     return
 
-def reconstruction_graph(input_tmp, yhat, split, filters=['u', 'g', 'i']):
+def reconstruction_graph(input_tmp, yhat, split, filters=['g', 'r', 'i']):
 
-    color1 = ['darkviolet', 'seagreen', 'crimson', 'maroon']
-    color2 = ['darkmagenta', 'darkgreen', 'firebrick', 'darkred']
+    color1 = ['seagreen', 'crimson', 'maroon']
+    color2 = ['darkgreen', 'firebrick', 'darkred']
 
     shutil.rmtree('/home/ricky/RNNAE/RNN_reconstruction_graph')
     os.makedirs('/home/ricky/RNNAE/RNN_reconstruction_graph')

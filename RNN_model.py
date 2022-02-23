@@ -23,7 +23,6 @@ def mask_unused_gpus(leave_unmasked=1):
 
 mask_unused_gpus()
 
-
 import absl.logging
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,7 +37,6 @@ from tensorflow.keras.optimizers import Adam
 absl.logging.set_verbosity(absl.logging.ERROR)
 
 # Save graphs --done, refine functions, anamoly dectection --done, better masking --done, Fourier Transform of lc.
-
 
 os.chdir('/home/ricky/RNNAE')
 
@@ -210,7 +208,7 @@ def rnnae_train(autoencoder, input_tmp, mask_tmp, patience=40, epochs=1000):
     plt.ylim(0, 0.05)
 
     os.chdir('/home/ricky/RNNAE')
-    plt.savefig('training history.pdf')
+    plt.savefig('RNN training history.pdf')
 
     return
 
@@ -230,7 +228,9 @@ def rnnae_train2(autoencoder, input_tmp, patience=40, epochs=1000):
     plt.plot(history.history['val_loss'])
     plt.grid()
     plt.ylim(0, 0.05)
-    plt.show()
+    
+    os.chdir('/home/ricky/RNNAE')
+    plt.savefig('RNN training history.pdf')
 
     return
 

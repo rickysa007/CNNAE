@@ -4,6 +4,7 @@ import glob
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from math import sqrt, log10
 from tqdm.contrib import tenumerate
 
@@ -61,7 +62,7 @@ class QC:
             return False
     
 
-    def avoid_empty_SN(self, num=40, lc_len_prepeak=-25, lc_len_postpeak=75):
+    def avoid_empty_SN(self, num=20, lc_len_prepeak=-24, lc_len_postpeak=72):
 
         '''
         Avoid SN that does not contain more than 40 data points at the specified band
@@ -120,7 +121,7 @@ class QC:
 class LC_Preprocess:
 
 
-    def __init__(self, filename, filters, json_data, lc_len_prepeak=-25, lc_len_postpeak=75):
+    def __init__(self, filename, filters, json_data, lc_len_prepeak=-24, lc_len_postpeak=72):
 
         self.filename = filename
 
@@ -164,9 +165,9 @@ class LC_Preprocess:
         return self.t, self.m, self.m_err, self.claimedtype
 
 
-    def lc_graph(self, colors = ['darkcyan', 'limegreen', 'crimson']):
+    def lc_graph(self, colors = ['lightseagreen', 'crimson', 'darkred']):
 
-        colors = ['blue', 'green', 'red', 'maroon']
+        #colors = ['blue', 'green', 'red', 'maroon']
 
         plt.plot(figsize=(16,12))
 
@@ -180,8 +181,7 @@ class LC_Preprocess:
         plt.legend()
         plt.grid()
         plt.gca().invert_yaxis()
-        plt.savefig(f'/home/ricky/RNNAE/import_graph/{self.SN_name}.pdf')
-        #plt.savefig(fr'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_graph\\{self.SN_name}.pdf')
+        plt.savefig(f'./{self.SN_name}.pdf')
         plt.clf()
 
 
@@ -231,20 +231,28 @@ class LC_Preprocess:
         
         return self.t, self.m, self.m_err, self.claimedtype, self.SN_name
 
+def create_clean_directory(d):
+
+    isExist = os.path.exists(d)
+    if isExist:
+        shutil.rmtree(d)
+        os.makedirs(d)
+    else:
+        os.makedirs(d)
+
+    return
 
 def main():
 
-    os.chdir('~/RNNAE/OSC_json') # Where the .json files are stored
+    pp = Path(__file__).parent.parent
+
+    os.chdir(f'{pp}/OSC_json') # Where the .json files are stored
     print('The current working directory is', os.getcwd())
 
     filenames = glob.glob('*.json')
     np.random.seed(1) 
     np.random.shuffle(filenames) # Shuffle for later ML training purpose
     print('The number of SNe is', len(filenames))
-
-    isExist = os.path.exists('~/RNNAE/import_graph')
-    if isExist:
-        shutil.rmtree('~/RNNAE')
 
     t_all = []
     m_all = []
@@ -256,7 +264,15 @@ def main():
     filter_SDSS_prime = ["g'", "r'", "i'"]
     filter_Johnson = ['B', 'V', 'R', 'I']
 
-    filter_all = filter_SDSS
+    filter_all = filter_SDSS_prime
+
+    if filter_all == filter_SDSS:
+        phtmet_sys = 'SDSS'
+    if filter_all == filter_SDSS_prime:
+        phtmet_sys = 'SDSS_prime'
+
+    create_clean_directory(f'{pp}/{phtmet_sys}_import_graph')
+    os.chdir(f'{pp}/{phtmet_sys}_import_graph')
 
     lc_len_prepeak = -24
     lc_len_postpeak = 72
@@ -266,16 +282,21 @@ def main():
     # Import .json of SNe and also screening
     print('Screening and extracting SNe ...')
     for i, filename in tenumerate(filenames):
-        with open(filename, encoding="utf-8") as f:
+        with open(f'{pp}/OSC_json/{filename}', encoding="utf-8") as f:
 
             json_data = json.load(f)
 
             filename_QC1 = QC(filename, filter_all, json_data).avoid_non_SNIa()
-            filename_QC2 = QC(filename, filter_all, json_data).avoid_empty_SN(num=20, lc_len_prepeak=-lc_len_prepeak, lc_len_postpeak=lc_len_postpeak)
+            filename_QC2 = QC(filename, filter_all, json_data).avoid_empty_SN(num=20, lc_len_prepeak=lc_len_prepeak, lc_len_postpeak=lc_len_postpeak)
 
             if (filename_QC1 and filename_QC2) is True: # Choosing SNe that are both SNIa and not empty
 
-                LC_result = LC_Preprocess(filename, filter_all, json_data, lc_len_prepeak=lc_len_prepeak, lc_len_postpeak=lc_len_postpeak).lc_extractor(peak_alignment=True, LC_graph=True)
+                LC_result = LC_Preprocess(
+                                        filename, filter_all, json_data, 
+                                        lc_len_prepeak=lc_len_prepeak, lc_len_postpeak=lc_len_postpeak
+                                        ).lc_extractor(
+                                            peak_alignment=True, LC_graph=True
+                                            )
 
                 t_all.append(LC_result[0])
                 m_all.append(LC_result[1])
@@ -285,8 +306,9 @@ def main():
 
                 num_extracted_SN += 1
 
-    os.chdir('/home/ricky/RNNAE/import_npy')
-    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_npy')
+    create_clean_directory(f'{pp}/{phtmet_sys}_import_npy')
+
+    os.chdir(f'{pp}/{phtmet_sys}_import_npy')
     print('The current working directory is', os.getcwd())
 
     np.save('Time_all.npy', np.array(t_all, dtype=object))

@@ -1,10 +1,7 @@
 /OSC_json
 /plasticc_csv
-/import_graph
-/GP_graph
-/RNN_anomaly_graph
-/RNN_reconstruction_graph
-/RNN_npy
-/CNN_anomaly_graph
-/CNN_reconstruction_graph
-/CNN_npy
+/SDSS_import_graph
+/SDSS_prime_GP_graph
+/SDSS_prime_import_graph
+/RNN_product
+/CNN_product

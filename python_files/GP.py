@@ -1,17 +1,17 @@
 import os
+import shutil
 import numpy as np
 import matplotlib.pyplot as plt
 import george
 from george import kernels
 from scipy.optimize import minimize
+from pathlib import Path
 from tqdm import tqdm
 
 class GP:
 
 
-    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.724, 6.202, 7.673], lc_length_prepeak=-50, lc_length_postpeak=50):
-
-        #filters_EWM = [3.54, 4.724, 6.202, 7.673, 9.05, 10.095]
+    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.672, 6.141, 7.458], lc_len_prepeak=-24, lc_len_postpeak=72):
 
         self.t = t
         self.m = m
@@ -23,8 +23,8 @@ class GP:
         self.filters = filters
         self.filters_EWM = filters_EWM
 
-        self.lc_length_prepeak = lc_length_prepeak
-        self.lc_length_postpeak = lc_length_postpeak
+        self.lc_len_prepeak = lc_len_prepeak
+        self.lc_len_postpeak = lc_len_postpeak
 
         self.x = []
         self.y = []
@@ -78,7 +78,7 @@ class GP:
 
     def lc_padding(self):
 
-        self.lc_len = self.lc_length_postpeak - self.lc_length_prepeak
+        self.lc_len = self.lc_len_postpeak - self.lc_len_prepeak
         self.data_t = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
         self.data_t_len = len(self.data_t)
 
@@ -88,9 +88,12 @@ class GP:
             self.data_m_err[i] = np.sqrt(self.GP_var[int((i)*len(self.GP_var)/len(self.filters)):int((i+1)*len(self.GP_var)/len(self.filters))])
 
             for j in range(self.lc_len - len(self.data_m[i])):
-
+                
                 self.data_m[i] = np.append(self.data_m[i], 0)
                 self.data_m_err[i] = np.append(self.data_m_err[i], 0)
+
+                '''self.data_m[i] = np.append(self.data_m[i], self.data_m[i][-1])
+                self.data_m_err[i] = np.append(self.data_m_err[i], self.data_m_err[i][-1])'''
 
         for i in range(self.lc_len - self.data_t_len):
             self.data_t = np.append(self.data_t, 0)
@@ -119,7 +122,7 @@ class GP:
         return self.y, self.y_err, self.y_mean, self.y_range
 
 
-    def lc_graph(self, colors = ['darkcyan', 'limegreen', 'crimson']):
+    def lc_graph(self, colors = ['lightseagreen', 'crimson', 'darkred']):
 
         #colors = ['indigo','darkcyan', 'limegreen', 'darkorange', 'crimson', 'maroon']
 
@@ -141,14 +144,13 @@ class GP:
             plt.fill_between(self.data_plot[0], self.data_plot[i+1] - self.data_plot[i+len(self.filters)+1], self.data_plot[i+1] + self.data_plot[i+len(self.filters)+1], color=colors[i], alpha=0.2)
 
         plt.title(f'{self.SN_name}, {self.type}')
-        plt.xlim(self.lc_length_prepeak, self.lc_length_postpeak)  
+        plt.xlim(self.lc_len_prepeak, self.lc_len_postpeak)  
         plt.xlabel('time (day)')
         plt.ylabel('absolute magnitude')
         plt.legend()
         plt.grid()
         plt.gca().invert_yaxis()
-        plt.savefig(f'/home/ricky/RNNAE/GP_graph/{self.SN_name}.pdf')
-        #plt.savefig(fr'C:\\Users\\ricky\\FYP\\RNNAE_public\\GP_graph\\{self.SN_name}.pdf')
+        plt.savefig(f'./{self.SN_name}.pdf')
         plt.clf()
 
         return
@@ -208,11 +210,38 @@ class GP:
 
         return self.data, self.data_meta
 
+def create_clean_directory(d):
+
+    isExist = os.path.exists(d)
+    if isExist:
+        shutil.rmtree(d)
+        os.makedirs(d)
+    else:
+        os.makedirs(d)
+
+    return
 
 def main():
 
-    os.chdir('/home/ricky/RNNAE/import_npy')
-    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\import_npy')
+    filter_SDSS = ['g', 'r', 'i'] # Selected band system
+    SDSS_EWM = [4.672, 6.141, 7.458]
+
+    filter_SDSS_prime = ["g'", "r'", "i'"]
+    SDSS_prime_EWM = [4.725, 6.203, 7.673]
+
+    filter_Johnson = ['B', 'V', 'R', 'I']
+
+    filter_all = filter_SDSS_prime
+    filters_EWM = SDSS_prime_EWM
+
+    if filter_all == filter_SDSS:
+        phtmet_sys = 'SDSS'
+    if filter_all == filter_SDSS_prime:
+        phtmet_sys = 'SDSS_prime'
+
+    pp = Path(__file__).parent.parent
+
+    os.chdir(f'{pp}/{phtmet_sys}_import_npy')
     print('Loading in import.npy')
 
     t_all = np.load('Time_all.npy', allow_pickle=True)
@@ -221,8 +250,12 @@ def main():
     claimedtype_all = np.load('Type_all.npy', allow_pickle=True)
     SN_name_all = np.load('SN_name.npy', allow_pickle=True)
 
-    os.chdir('/home/ricky/RNNAE/')
-    #os.chdir(r'C:\\Users\\ricky\\FYP\\RNNAE_public\\')
+    print('Finished loading in import.npy')
+
+    create_clean_directory(f'{pp}/{phtmet_sys}_GP_graph')
+
+    os.chdir(f'{pp}/{phtmet_sys}_GP_graph')
+
     print('Working on GP interpolaiton')
 
     data_all = [ [] for i in t_all]
@@ -235,22 +268,21 @@ def main():
         data_all[i], data_meta_all[i] = GP(
             t_all[i], m_all[i], m_err_all[i], 
             claimedtype_all[i], SN_name_all[i], 
-            ['g', 'r', 'i'],
-            lc_length_prepeak=-25, lc_length_postpeak=75
+            filter_all, filters_EWM=filters_EWM,
+            lc_len_prepeak=-24, lc_len_postpeak=72
             ).GP_interpolate(
                 normalization=True, LC_graph=True
                 )
-        
-        '''if data_all[i] == None:
-            print(i)'''
     
     data_all = list(filter(None, data_all))
     data_meta_all = list(filter(None, data_meta_all))
 
     print(f'There are in total successful {len(data_all)} GP interpolated SNe, and {len(t_all) - len(data_all)} SNe not successful')
 
-    np.save('data_GP.npy', np.array(data_all, dtype=object))
-    np.save('data_meta_GP.npy', np.array(data_meta_all, dtype=object))
+    create_clean_directory(f'{pp}/{phtmet_sys}_GP_npy')
+
+    np.save(f'{pp}/{phtmet_sys}_GP_npy/lc.npy', np.array(data_all, dtype=object))
+    np.save(f'{pp}/{phtmet_sys}_GP_npy/lc_meta.npy', np.array(data_meta_all, dtype=object))
 
     print('End of GP.py')
 

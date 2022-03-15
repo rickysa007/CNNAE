@@ -1,6 +1,7 @@
 import os
 import shutil
 import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 
 def pht_conversion(lc_tmp, lc_meta_tmp):
@@ -29,6 +30,36 @@ def pht_conversion(lc_tmp, lc_meta_tmp):
     lc_conv_tmp = np.array(lc_conv_tmp)
 
     return lc_conv_tmp
+
+def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv):
+
+    seen = set()
+    dupe_SN = []
+
+    for i, x in enumerate(lc_meta_merged[:,2]):
+        if x in seen:
+            dupe_SN.append(x)
+        else:
+            seen.add(x)
+
+    dupe_SDSS   = [x for x, i in enumerate(lc_meta_SDSS[:,2]) if i in dupe_SN]
+    dupe_SDSS_p = [x for x, i in enumerate(lc_meta_SDSS_p[:,2]) if i in dupe_SN]
+
+    # fit peak?
+    i=2
+    
+    diff = np.argmin(lc_conv[dupe_SDSS_p[i]][1]) - np.argmin(lc_SDSS[dupe_SDSS[i]][1])
+    print(diff)
+
+    plt.scatter(np.linspace(0, 96, 96)+diff, lc_SDSS[dupe_SDSS[i]][1], s=8, label='SDSS')
+    plt.scatter(np.linspace(0, 96, 96), lc_SDSS_p[dupe_SDSS_p[i]][1], s=8, label='SDSS_p')
+    plt.scatter(np.linspace(0, 96, 96), lc_conv[dupe_SDSS_p[i]][1], s=8, label='conv')
+    plt.legend()
+    plt.gca().invert_yaxis()
+    plt.show()
+    plt.close()
+
+    return
 
 def create_clean_directory(d):
 
@@ -65,15 +96,17 @@ def main():
 
     lc_conv = np.array(lc_conv)
 
-    lc_SDSS = np.concatenate((lc_SDSS, lc_conv))
-    lc_meta_SDSS = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))
+    lc_SDSS_merged = np.concatenate((lc_SDSS, lc_conv))
+    lc_meta_SDSS_merged = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))
 
-    print(f'Shape of light curves after conversion is {lc_SDSS.shape}')
+    print(f'Shape of light curves after conversion is {lc_SDSS_merged.shape}')
+
+    create_clean_directory(f'{pp}/pht_conv_graph')
+    comparison_graph(lc_meta_SDSS_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv)
 
     create_clean_directory(f'{pp}/conv_npy')
-
-    np.save(f'{pp}/conv_npy/lc.npy', np.array(lc_SDSS, dtype=object))
-    np.save(f'{pp}/conv_npy/lc_meta.npy', np.array(lc_meta_SDSS, dtype=object))
+    np.save(f'{pp}/conv_npy/lc.npy', np.array(lc_SDSS_merged, dtype=object))
+    np.save(f'{pp}/conv_npy/lc_meta.npy', np.array(lc_meta_SDSS_merged, dtype=object))
 
     print('End of pht_conv.py')
 

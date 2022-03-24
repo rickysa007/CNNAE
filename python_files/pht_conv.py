@@ -1,3 +1,4 @@
+import itertools
 import os
 import shutil
 import numpy as np
@@ -11,6 +12,11 @@ def pht_conversion(lc_tmp, lc_meta_tmp):
     lc_conv_tmp = [ [] for i in range(lc_tmp.shape[0])]
 
     lc_conv_tmp[0] = lc_tmp[0]
+
+    #unnormalize lc
+    for i in range(lc_tmp.shape[0] - 4):
+        lc_conv_tmp[i+1] = lc_tmp[i+1]*lc_meta_tmp['range'] + lc_meta_tmp['mean']
+        lc_conv_tmp[i+4] = lc_tmp[i+4]*lc_meta_tmp['range']
     
     lc_conv_tmp[1] = lc_tmp[1] - (-0.060)*( (lc_tmp[1] - lc_tmp[2]) - 0.53)
     lc_conv_tmp[2] = lc_tmp[2] - (-0.035)*( (lc_tmp[2] - lc_tmp[3]) - 0.21)
@@ -20,44 +26,75 @@ def pht_conversion(lc_tmp, lc_meta_tmp):
     lc_conv_tmp[5] = np.sqrt( (np.square(lc_tmp[5]) - np.square( (-0.035)*np.sqrt( (np.square(lc_tmp[5]) + np.square(lc_tmp[6])).astype(float) ) )).astype(float) )
     lc_conv_tmp[6] = np.sqrt( (np.square(lc_tmp[6]) - np.square( (-0.041)*np.sqrt( (np.square(lc_tmp[5]) + np.square(lc_tmp[6])).astype(float) ) )).astype(float) )
 
-    lc_conv_tmp = np.array(lc_conv_tmp)
-    lc_conv_tmp = list(lc_conv_tmp[:,:lc_meta_tmp[0]])
+    #renormalize lc
+    mean_tmp = np.mean(list(itertools.chain(lc_conv_tmp[1], lc_conv_tmp[2], lc_conv_tmp[3])))
+    range_tmp = np.abs(np.max(list(itertools.chain(lc_conv_tmp[1], lc_conv_tmp[2], lc_conv_tmp[3]))) - np.min(list(itertools.chain(lc_conv_tmp[1], lc_conv_tmp[2], lc_conv_tmp[3]))))
 
-    for i in range(len(lc_conv_tmp)):
-        for j in range(len(lc_tmp[0]) - lc_meta_tmp[0]):
-            lc_conv_tmp[i] = np.append(lc_conv_tmp[i], 0)
+    for i in range(lc_tmp.shape[0] - 4):
+        lc_conv_tmp[i+1] = (lc_conv_tmp[i+1] - mean_tmp) / range_tmp
+        lc_conv_tmp[i+4] = lc_conv_tmp[i+4]*range_tmp
 
     lc_conv_tmp = np.array(lc_conv_tmp)
+    lc_conv_tmp = list(lc_conv_tmp[:,:lc_meta_tmp['t_len']])
+
+    #reappend time and 0 magnitude at the tail
+    for i in range(len(lc_tmp[0]) - lc_meta_tmp['t_len']):
+            lc_conv_tmp[0] = np.append(lc_conv_tmp[0], lc_conv_tmp[0][-1] + 1)
+
+    for i in range(len(lc_conv_tmp) - 1):
+        for j in range(len(lc_tmp[0]) - lc_meta_tmp['t_len']):
+            lc_conv_tmp[i+1] = np.append(lc_conv_tmp[i+1], 0)
+
+    #lc_conv_tmp = np.array(lc_conv_tmp)
 
     return lc_conv_tmp
 
-def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv):
+def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv, t, m, m_err):
+
+    SN_name_merged = [lc_meta_merged[i]['SN_name'] for i in range(len(lc_meta_merged))]
+    SN_name_SDSS = [lc_meta_SDSS[i]['SN_name'] for i in range(len(lc_meta_SDSS))]
+    SN_name_SDSS_p = [lc_meta_SDSS_p[i]['SN_name'] for i in range(len(lc_meta_SDSS_p))]
 
     seen = set()
     dupe_SN = []
 
-    for i, x in enumerate(lc_meta_merged[:,2]):
+    for i, x in enumerate(SN_name_merged):
         if x in seen:
             dupe_SN.append(x)
         else:
             seen.add(x)
 
-    dupe_SDSS   = [x for x, i in enumerate(lc_meta_SDSS[:,2]) if i in dupe_SN]
-    dupe_SDSS_p = [x for x, i in enumerate(lc_meta_SDSS_p[:,2]) if i in dupe_SN]
+    dupe_SDSS   = [id for id, x in enumerate(SN_name_SDSS) if x in dupe_SN]
+    dupe_SDSS_p = [id for id, x in enumerate(SN_name_SDSS_p) if x in dupe_SN]
+    print(dupe_SDSS)
+    print(dupe_SN)
 
-    # fit peak?
-    i=2
-    
-    diff = np.argmin(lc_conv[dupe_SDSS_p[i]][1]) - np.argmin(lc_SDSS[dupe_SDSS[i]][1])
-    print(diff)
+    for i in range(len(dupe_SN)):
 
-    plt.scatter(np.linspace(0, 96, 96)+diff, lc_SDSS[dupe_SDSS[i]][1], s=8, label='SDSS')
-    plt.scatter(np.linspace(0, 96, 96), lc_SDSS_p[dupe_SDSS_p[i]][1], s=8, label='SDSS_p')
-    plt.scatter(np.linspace(0, 96, 96), lc_conv[dupe_SDSS_p[i]][1], s=8, label='conv')
-    plt.legend()
-    plt.gca().invert_yaxis()
-    plt.show()
-    plt.close()
+        os.makedirs(f'./{dupe_SN[i]}')
+        os.chdir(f'./{dupe_SN[i]}')
+
+        pht_sys = ['g', 'r', 'i']
+        colors = ['lightseagreen', 'crimson', 'darkred']
+
+        for j in range((lc_SDSS.shape[1]-1)//2):
+            fig = plt.figure(figsize=(12, 9))
+
+            plt.scatter(lc_SDSS[dupe_SDSS[i]][0], lc_SDSS[dupe_SDSS[i]][j+1], marker='x', s=40, label='SDSS', color=colors[j])
+            plt.scatter(lc_SDSS_p[dupe_SDSS_p[i]][0], lc_SDSS_p[dupe_SDSS_p[i]][j+1], s=20, label='SDSS_p', color=colors[j])
+            plt.scatter(lc_conv[dupe_SDSS_p[i]][0], lc_conv[dupe_SDSS_p[i]][j+1], marker='v', s=40, label='converted', color=colors[j])
+            #plt.errorbar(t[dupe_SDSS[i]][j], m[dupe_SDSS[i]][j], m_err[dupe_SDSS[i]][j], label='SDSS actual observation', color=colors[j])
+
+            plt.legend()
+            plt.gca().invert_yaxis()
+            plt.grid()
+            plt.title(f'{dupe_SN[i]}, {pht_sys[j]}')
+
+            plt.show()
+            plt.savefig(f'{dupe_SN[i]}_{pht_sys[j]}_band.pdf')
+            plt.close()
+
+        os.chdir('..')
 
     return
 
@@ -77,14 +114,19 @@ def main():
     pp = Path(__file__).parent.parent
 
     os.chdir(f'{pp}/SDSS_GP_npy')
-
     lc_SDSS = np.array(np.load('lc.npy', allow_pickle=True))
     lc_meta_SDSS = np.array(np.load('lc_meta.npy', allow_pickle=True))
 
     os.chdir(f'{pp}/SDSS_prime_GP_npy')
-
     lc_SDSS_p = np.array(np.load('lc.npy', allow_pickle=True))
     lc_meta_SDSS_p = np.array(np.load('lc_meta.npy', allow_pickle=True))
+
+    print(lc_SDSS.shape, lc_SDSS_p.shape)
+
+    os.chdir(f'{pp}/SDSS_import_npy')
+    t_SDSS = np.load('Time_all.npy', allow_pickle=True)
+    m_SDSS = np.load('Magnitude_Abs_all.npy', allow_pickle=True)
+    m_err_SDSS = np.load('Magnitude_Abs_err_all.npy', allow_pickle=True)
 
     lc_conv = []
 
@@ -96,13 +138,18 @@ def main():
 
     lc_conv = np.array(lc_conv)
 
+    for i in range(lc_SDSS.shape[0]):
+        if len(lc_SDSS[i][0]) != 96:
+            print(f'{i}, {len(lc_SDSS[i][0])}')
+
     lc_SDSS_merged = np.concatenate((lc_SDSS, lc_conv))
     lc_meta_SDSS_merged = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))
 
     print(f'Shape of light curves after conversion is {lc_SDSS_merged.shape}')
 
     create_clean_directory(f'{pp}/pht_conv_graph')
-    comparison_graph(lc_meta_SDSS_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv)
+    os.chdir(f'{pp}/pht_conv_graph')
+    comparison_graph(lc_meta_SDSS_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv, t_SDSS, m_SDSS, m_err_SDSS)
 
     create_clean_directory(f'{pp}/conv_npy')
     np.save(f'{pp}/conv_npy/lc.npy', np.array(lc_SDSS_merged, dtype=object))

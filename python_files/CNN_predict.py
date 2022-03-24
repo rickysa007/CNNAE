@@ -33,10 +33,10 @@ from tqdm import tqdm
 absl.logging.set_verbosity(absl.logging.ERROR)
 
 
-os.chdir('/home/ricky/RNNAE')
+os.chdir('/home/ricky/RNNAE/conv_npy')
 
-data_GP = np.array(np.load('data_GP.npy', allow_pickle=True))
-data_meta_GP = np.array(np.load('data_meta_GP.npy', allow_pickle=True))
+lc = np.array(np.load('lc.npy', allow_pickle=True))
+lc_meta = np.array(np.load('lc_meta.npy', allow_pickle=True))
 
 def import_data(x):
 
@@ -45,6 +45,17 @@ def import_data(x):
 
     return x
 
+def create_clean_directory(d):
+
+    isExist = os.path.exists(d)
+    if isExist:
+        shutil.rmtree(d)
+        os.makedirs(d)
+    else:
+        os.makedirs(d)
+
+    return
+
 def cnnae_test(autoencoder, input_tmp):
 
     pred = autoencoder.predict(x=input_tmp, verbose=1)
@@ -52,40 +63,47 @@ def cnnae_test(autoencoder, input_tmp):
 
     return pred, pred_loss
 
-def latent_space_demo(encoder, input_tmp):
-
-    latent_space = encoder.predict(input_tmp, verbose=1)
-
-    os.chdir('/home/ricky/RNNAE/CNN_latent_space_graph')
-
-    '''for i in range(latent_space.shape[1] - 1):
-        for j in range(latent_space.shape[1] - 1 - i):
-            fig = plt.figure(figsize=(6, 6))
-            plt.grid()
-            plt.scatter(latent_space[:,i], latent_space[:,i+j+1], s=8)
-            plt.title(f'id {i} vs id {i+j+1}.pdf')
-            plt.savefig(f'id_{i}_vs_id_{i+j+1}.pdf')
-            plt.close()'''
-
-    return latent_space
-
-def isolation_forest(latent_space, n_tree, split, input_tmp):
-
-    print(int(input_tmp.shape[1]*input_tmp.shape[2]*64/16))
-    latent_space_2D = latent_space.reshape(input_tmp.shape[0], int(input_tmp.shape[1]*input_tmp.shape[2]*64/16))
-    
-    print('Fitting isolation forest...')
+def isolation_forest(latent_space, n_tree, split):
 
     clf = IsolationForest(n_estimators=n_tree, warm_start=True)
-    clf.fit(latent_space_2D)
-    anomaly = clf.score_samples(latent_space_2D)
+    clf.fit(latent_space)
+    anomaly = clf.score_samples(latent_space)
     anomaly_id = np.argsort(anomaly)
 
-    shutil.rmtree('/home/ricky/RNNAE/CNN_anomaly_graph')
-    os.makedirs('/home/ricky/RNNAE/CNN_anomaly_graph')
+    d = '/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph'
+
+    create_clean_directory(d)
 
     for i, ano in enumerate(anomaly_id):
-        shutil.copy(f'/home/ricky/RNNAE/GP_graph/{data_meta_GP[ano+split][-1]}.pdf', f'/home/ricky/RNNAE/CNN_anomaly_graph/{i}_{data_meta_GP[ano+split][-1]}.pdf')
+        name = lc_meta[ano+split]['SN_name']
+        try:
+            shutil.copy(f'/home/ricky/RNNAE/SDSS_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}.pdf')
+        except:
+            shutil.copy(f'/home/ricky/RNNAE/SDSS_prime_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}.pdf')
+
+    return anomaly_id
+
+def latent_space_graph(latent_space, anomaly_id, split):
+
+    d = '/home/ricky/RNNAE/CNN_product/CNN_latent_space_graph'
+    create_clean_directory(d)
+    os.chdir(d)
+
+    color = [0 for i in range(latent_space.shape[0])]
+    for i, ano in enumerate(anomaly_id):
+        color[ano] = i
+
+    print('plotting latent space graphs...')
+
+    for i in tqdm(range(latent_space.shape[1] - 1)):
+        for j in range(latent_space.shape[1] - 1 - i):
+            fig = plt.figure(figsize=(8, 6))
+            plt.grid() 
+            plt.scatter(latent_space[:,i], latent_space[:,i+j+1], c=color, cmap='viridis', s=6)
+            plt.colorbar()
+            plt.title(f'id {i} vs id {i+j+1}')
+            plt.savefig(f'id_{i}_vs_id_{i+j+1}.pdf', bbox_inches='tight')
+            plt.close()
 
     return
 
@@ -94,18 +112,18 @@ def reconstruction_graph(input_tmp, pred, split, filters=['g', 'r', 'i']):
     color1 = ['seagreen', 'crimson', 'maroon']
     color2 = ['darkgreen', 'firebrick', 'darkred']
 
-    shutil.rmtree('/home/ricky/RNNAE/CNN_reconstruction_graph')
-    os.makedirs('/home/ricky/RNNAE/CNN_reconstruction_graph')
+    d = '/home/ricky/RNNAE/CNN_product/CNN_reconstruction_graph'
+    create_clean_directory(d)
 
     for i in tqdm(range(input_tmp.shape[0])):
 
-        os.chdir('/home/ricky/RNNAE/CNN_reconstruction_graph')
+        os.chdir(d)
 
-        isExist = os.path.exists(f'./{data_meta_GP[i+split][-1]}')
+        isExist = os.path.exists(f'./{lc_meta[i+split]["SN_name"]}')
 
         if not isExist:
-            os.makedirs(f'./{data_meta_GP[i+split][-1]}')
-            os.chdir(f'./{data_meta_GP[i+split][-1]}')
+            os.makedirs(f'./{lc_meta[i+split]["SN_name"]}')
+            os.chdir(f'./{lc_meta[i+split]["SN_name"]}')
 
         fig, axs = plt.subplots(3, figsize=(12, 18))
 
@@ -114,15 +132,15 @@ def reconstruction_graph(input_tmp, pred, split, filters=['g', 'r', 'i']):
         axs[1].set_title('reconstructed test image')
         axs[2].set_title('difference')
 
-        a0 = axs[0].imshow(input_tmp[i].reshape(200,48).T, interpolation='nearest', aspect='auto', cmap='BrBG')
-        a1 = axs[1].imshow(pred[i].reshape(200,48).T, interpolation='nearest', aspect='auto', cmap='BrBG')
-        a2 = axs[2].imshow((input_tmp[i] - pred[i]).reshape(200,48).T, interpolation='nearest', aspect='auto', cmap='BrBG')
+        a0 = axs[0].imshow(input_tmp[i].reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG')
+        a1 = axs[1].imshow(pred[i].reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG')
+        a2 = axs[2].imshow((input_tmp[i] - pred[i]).reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG')
 
         fig.colorbar(a0, ax=axs[0])
         fig.colorbar(a1, ax=axs[1])
         fig.colorbar(a2, ax=axs[2])
 
-        fig.savefig(f'./{data_meta_GP[i+split][-1]}.pdf', bbox_inches='tight')
+        fig.savefig(f'./{lc_meta[i+split]["SN_name"]}.pdf', bbox_inches='tight')
 
         plt.close()
 
@@ -137,28 +155,24 @@ def reconstruction_graph(input_tmp, pred, split, filters=['g', 'r', 'i']):
             ax.grid(which='minor', alpha=0.3)
 
             plt.xlabel('Timestep', fontsize=15)
-            plt.ylabel('Absolute Magnitude', fontsize=15)
+            plt.ylabel('Normalized Absolute Magnitude', fontsize=15)
 
-            plt.xlim(-25, 75)
+            plt.title(f'{lc_meta[i+split]["SN_name"]}, {lc_meta[i+split]["type"]}, {filter}')
 
-            plt.title(f'{data_meta_GP[i+split][-1]}, {data_meta_GP[i+split][-2]}, {filter}')
-
-            #plt.errorbar(data_GP[i+split][0], data_GP[i+split][j+1], y_err=data_GP[i+split][j+4], fmt='v')
-
-            plt.scatter(data_GP[i+split,0,:], input_tmp[i][:,j,:data_meta_GP[i+split][0]], s=2, marker='o', color=color1[j], label=f'test data'.format('o'))
-            plt.scatter(data_GP[i+split,0,:], pred[i][:,j,:data_meta_GP[i+split][0]], s=12, marker='X', color=color2[j], label=f'reconstruction'.format('X'))
+            plt.scatter(np.linspace(0, 96, 96), input_tmp[i][:,j,:], s=2, marker='o', color=color1[j], label=f'test data'.format('o'))
+            plt.scatter(np.linspace(0, 96, 96), pred[i][:,j,:], s=12, marker='X', color=color2[j], label=f'reconstruction'.format('X'))
             
             plt.legend()
 
-            plt.savefig(f'./{data_meta_GP[i+split][-1]}_{filter}_band.pdf')
+            plt.savefig(f'./{lc_meta[i+split]["SN_name"]}_{filter}_band.pdf')
 
             plt.close()
 
     return
 
-def cnn_predict(autoencoder, encoder, input_tmp, **kwargs):
+def cnn_predict(autoencoder, input_tmp, **kwargs):
 
-    split = int(0.8*(data_GP.shape[0]))
+    split = int(0.8*(lc.shape[0]))
 
     if kwargs['training_data']:
         split = 0
@@ -171,18 +185,17 @@ def cnn_predict(autoencoder, encoder, input_tmp, **kwargs):
 
     return pred, pred_loss
 
-
 def main():
     
     print('Loading in autoencoder model...')
-    autoencoder = tf.keras.models.load_model('/home/ricky/RNNAE/CNN_autoencoder_model')
+    autoencoder = tf.keras.models.load_model('/home/ricky/RNNAE/CNN_product/CNN_autoencoder_model')
     print('Autoencoder finished loading')
 
     print('Loading in encoder model...')
-    encoder = tf.keras.models.load_model('/home/ricky/RNNAE/CNN_encoder_model')
+    encoder = tf.keras.models.load_model('/home/ricky/RNNAE/CNN_product/CNN_encoder_model')
     print('Encoder finished loading')
 
-    os.chdir('/home/ricky/RNNAE/CNN_npy')
+    os.chdir('/home/ricky/RNNAE/CNN_product/CNN_npy')
 
     input = import_data('input')
     input_train = import_data('input_train')
@@ -190,10 +203,11 @@ def main():
     type_train = import_data('type_train')
     type_test = import_data('type_test')
 
-    cnn_predict(autoencoder, encoder, input_test[0], reconstruct_graph=True, training_data=False)
+    cnn_predict(autoencoder, input_test[0], reconstruct_graph=False, training_data=False)
 
-    latent_space = latent_space_demo(encoder, input_train[0])
-    #isolation_forest(latent_space, 1000, 0, input_train[0])
+    latent_space = encoder.predict(input[0], verbose=1)
+    anomaly_id = isolation_forest(latent_space, 3000, 0)
+    latent_space_graph(latent_space, anomaly_id, split=0)
 
     print('End of CNN_predict.py')
 

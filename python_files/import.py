@@ -142,14 +142,26 @@ class LC_Preprocess:
         self.m_err = [ [] for filter in self.filters]
 
 
-    def peak_alignment(self):
+    def lc_truncation(self, peak_alignment):
 
-        self.m_max_id = np.argmin(self.m[1])
+        self.m_max_id = np.argmin(self.m[1]) # Finding maximum by r band
         self.t_max = self.t[1][self.m_max_id]
 
-        for i, filter in enumerate(self.filters):
+        if peak_alignment is True:
 
-            self.t[i] = np.array(self.t[i]) - self.t_max
+            for i, filter in enumerate(self.filters):
+                self.t[i] = np.array(self.t[i]) - self.t_max
+
+            self.t_max = 0
+
+        else:
+            for i, filter in enumerate(self.filters):
+                self.t[i] = np.array(self.t[i])
+
+        self.lc_len_prepeak  += self.t_max
+        self.lc_len_postpeak += self.t_max
+
+        for i, filter in enumerate(self.filters):
 
             self.t[i]     = np.delete(self.t[i], np.where(self.t[i] > self.lc_len_postpeak))
             self.m[i]     = self.m[i][0:len(self.t[i])]
@@ -160,7 +172,7 @@ class LC_Preprocess:
             self.m_err[i] = self.m_err[i][len(self.m_err[i]) - len(self.t[i]):]
 
             if (len(self.t[i]) - len(self.m[i])) != 0:
-                print('bruh')
+                print('unmatch length between time and magnitude!!!')
 
         return self.t, self.m, self.m_err, self.claimedtype
 
@@ -224,7 +236,9 @@ class LC_Preprocess:
                         self.m_err[j].append(0.3)
 
         if kwargs['peak_alignment']:
-            LC_Preprocess.peak_alignment(self)
+            LC_Preprocess.lc_truncation(self, peak_alignment=True)
+        else:
+            LC_Preprocess.lc_truncation(self, peak_alignment=False)
 
         if kwargs['LC_graph']:
             LC_Preprocess.lc_graph(self)
@@ -267,12 +281,12 @@ def main():
     filter_all = filter_SDSS_prime
 
     if filter_all == filter_SDSS:
-        phtmet_sys = 'SDSS'
+        phtmet_sys_name = 'SDSS'
     if filter_all == filter_SDSS_prime:
-        phtmet_sys = 'SDSS_prime'
+        phtmet_sys_name = 'SDSS_prime'
 
-    create_clean_directory(f'{pp}/{phtmet_sys}_import_graph')
-    os.chdir(f'{pp}/{phtmet_sys}_import_graph')
+    create_clean_directory(f'{pp}/{phtmet_sys_name}_import_graph')
+    os.chdir(f'{pp}/{phtmet_sys_name}_import_graph')
 
     lc_len_prepeak = -24
     lc_len_postpeak = 72
@@ -295,7 +309,7 @@ def main():
                                         filename, filter_all, json_data, 
                                         lc_len_prepeak=lc_len_prepeak, lc_len_postpeak=lc_len_postpeak
                                         ).lc_extractor(
-                                            peak_alignment=True, LC_graph=True
+                                            peak_alignment=False, LC_graph=True
                                             )
 
                 t_all.append(LC_result[0])
@@ -306,9 +320,9 @@ def main():
 
                 num_extracted_SN += 1
 
-    create_clean_directory(f'{pp}/{phtmet_sys}_import_npy')
+    create_clean_directory(f'{pp}/{phtmet_sys_name}_import_npy')
 
-    os.chdir(f'{pp}/{phtmet_sys}_import_npy')
+    os.chdir(f'{pp}/{phtmet_sys_name}_import_npy')
     print('The current working directory is', os.getcwd())
 
     np.save('Time_all.npy', np.array(t_all, dtype=object))

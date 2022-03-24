@@ -1,6 +1,7 @@
 import os
 import shutil
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 import george
 from george import kernels
@@ -11,7 +12,7 @@ from tqdm import tqdm
 class GP:
 
 
-    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EWM = [4.672, 6.141, 7.458], lc_len_prepeak=-24, lc_len_postpeak=72):
+    def __init__(self, t, m, m_err, type, SN_name, filters, filters_EffWM , lc_len_prepeak=-24, lc_len_postpeak=72):
 
         self.t = t
         self.m = m
@@ -21,7 +22,7 @@ class GP:
         self.SN_name = SN_name
 
         self.filters = filters
-        self.filters_EWM = filters_EWM
+        self.filters_EffWM = filters_EffWM
 
         self.lc_len_prepeak = lc_len_prepeak
         self.lc_len_postpeak = lc_len_postpeak
@@ -37,7 +38,8 @@ class GP:
 
         self.data = [ [] for i in range(1 + len(self.filters)*2)]
         self.data_plot = [ [] for i in range(1 + len(self.filters)*2)]
-        self.data_meta = [ [] for i in range(3)]
+        #self.data_meta = [ [] for i in range(3)]
+        self.data_meta = {'t_len': None, 'type': None, 'SN_name': None, 'mean': 0, 'range': 0}
 
         self.y_mean = 0
         self.y_range = 0
@@ -48,7 +50,7 @@ class GP:
                 self.x.append(self.t[i][j])
                 self.y.append(self.m[i][j])
                 self.y_err.append(self.m_err[i][j])
-                self.filters_num.append(self.filters_EWM[i])
+                self.filters_num.append(self.filters_EffWM[i])
 
 
     def x_GP_pred_generator(self):
@@ -66,10 +68,10 @@ class GP:
         self.filters_num_tmp = []
 
         for i, filter in enumerate(self.filters):
-            self.t_tmp = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
+            self.t_tmp = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min), endpoint=False)
             for j in range(len(self.t_tmp)):
                 self.x_tmp.append(self.t_tmp[j])
-                self.filters_num_tmp.append(self.filters_EWM[i])
+                self.filters_num_tmp.append(self.filters_EffWM[i])
 
         self.x_GP_pred = np.vstack([self.x_tmp, self.filters_num_tmp]).T
 
@@ -79,7 +81,7 @@ class GP:
     def lc_padding(self):
 
         self.lc_len = self.lc_len_postpeak - self.lc_len_prepeak
-        self.data_t = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
+        self.data_t = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min), endpoint=False)
         self.data_t_len = len(self.data_t)
 
         for i in range(len(self.filters)):
@@ -96,7 +98,10 @@ class GP:
                 self.data_m_err[i] = np.append(self.data_m_err[i], self.data_m_err[i][-1])'''
 
         for i in range(self.lc_len - self.data_t_len):
-            self.data_t = np.append(self.data_t, 0)
+            self.data_t = np.append(self.data_t, self.data_t[-1] + 1)
+
+        if len(self.data_t) != self.lc_len:
+            print('incorrect length')
 
         self.data[0] = self.data_t
         for i in range(len(self.filters)):
@@ -104,9 +109,13 @@ class GP:
         for i in range(len(self.filters)):
             self.data[i+len(self.filters)+1] = self.data_m_err[i]
 
-        self.data_meta[0] = self.data_t_len
+        '''self.data_meta[0] = self.data_t_len
         self.data_meta[1] = self.type
-        self.data_meta[2] = self.SN_name
+        self.data_meta[2] = self.SN_name'''
+
+        self.data_meta['t_len'] = self.data_t_len
+        self.data_meta['type'] = self.type
+        self.data_meta['SN_name'] = self.SN_name
 
         return self.data, self.data_meta
 
@@ -119,6 +128,9 @@ class GP:
         self.y_err = self.y_err / self.y_range
         self.y = (self.y - self.y_mean) / self.y_range
 
+        self.data_meta['mean'] = self.y_mean
+        self.data_meta['range'] = self.y_range
+
         return self.y, self.y_err, self.y_mean, self.y_range
 
 
@@ -128,25 +140,28 @@ class GP:
 
         plt.plot(figsize=(16,12))
 
-        self.data_plot[0] = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min) + 1)
-
+        self.data_plot[0] = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min), endpoint=False)
+        
         for i, filter in enumerate(self.filters):
-
+            
             if self.y_range != 0:
                 self.m_tmp = (self.m[i] - self.y_mean) / self.y_range
                 self.m_err_tmp = self.m_err[i] / self.y_range
+            else:
+                self.m_tmp = self.m[i]
+                self.m_err_tmp = self.m_err[i]
 
-            self.data_plot[i+1] = self.data[i+1][:self.data_meta[-3]]
-            self.data_plot[i+len(self.filters)+1] = self.data[i+len(self.filters)+1][:self.data_meta[-3]]
+            self.data_plot[i+1] = self.data[i+1][:self.data_meta['t_len']]
+            self.data_plot[i+len(self.filters)+1] = self.data[i+len(self.filters)+1][:self.data_meta['t_len']]
 
             plt.errorbar(np.array(self.t[i]), np.array(self.m_tmp), np.array(self.m_err_tmp), label=filter, color=colors[i], fmt='.')
-            plt.plot(self.data_plot[0], self.data_plot[i+1], label=filter, color = colors[i], alpha=0.8)
+            plt.plot(self.data_plot[0], self.data_plot[i+1], label=filter, color=colors[i], alpha=0.8)
             plt.fill_between(self.data_plot[0], self.data_plot[i+1] - self.data_plot[i+len(self.filters)+1], self.data_plot[i+1] + self.data_plot[i+len(self.filters)+1], color=colors[i], alpha=0.2)
 
         plt.title(f'{self.SN_name}, {self.type}')
-        plt.xlim(self.lc_len_prepeak, self.lc_len_postpeak)  
+        #plt.xlim(self.lc_len_prepeak, self.lc_len_postpeak)  
         plt.xlabel('time (day)')
-        plt.ylabel('absolute magnitude')
+        plt.ylabel('normalized absolute magnitude')
         plt.legend()
         plt.grid()
         plt.gca().invert_yaxis()
@@ -190,20 +205,21 @@ class GP:
 
         self.data, self.data_meta = GP.lc_padding(self)
 
-        '''#Final quality check
+        #Final quality check
         diff = 0
-        err_ratio = 0
+        #err_ratio = 0
 
         for i in range(len(self.filters) - 1):
 
             diff += np.sum(self.data[i+2] - self.data[i+1])
-            err_ratio += np.sum(self.data[i+4])
+            #err_ratio += np.sum(self.data[i+4])
 
-        diff_norm = abs(diff*self.lc_len/self.data_t_len)
-        err_ratio_norm = abs(err_ratio*self.lc_len/self.data_t_len)
+        #diff_norm = abs(diff*self.lc_len/self.data_t_len)
+        #err_ratio_norm = abs(err_ratio*self.lc_len/self.data_t_len)
 
-        if diff_norm/err_ratio_norm < 1:
-            return None, None'''
+        #if diff_norm/err_ratio_norm < 1:
+        if abs(diff) < 0.1:
+            return None, None
 
         if kwargs['LC_graph']:
             GP.lc_graph(self)
@@ -223,26 +239,24 @@ def create_clean_directory(d):
 
 def main():
 
-    filter_SDSS = ['g', 'r', 'i'] # Selected band system
-    SDSS_EWM = [4.672, 6.141, 7.458]
+    SDSS_dict       = {'sys': 'SDSS', 
+                       'filter': ['g', 'r', 'i'],
+                       'EffWM': [4.672, 6.141, 7.458]}
 
-    filter_SDSS_prime = ["g'", "r'", "i'"]
-    SDSS_prime_EWM = [4.725, 6.203, 7.673]
+    SDSS_prime_dict = {'sys': 'SDSS_prime',
+                       'filter': ["g'", "r'", "i'"],
+                       'EffWM': [4.725, 6.203, 7.673]}
 
-    filter_Johnson = ['B', 'V', 'R', 'I']
+    phtmet_sys = SDSS_prime_dict
 
-    filter_all = filter_SDSS_prime
-    filters_EWM = SDSS_prime_EWM
-
-    if filter_all == filter_SDSS:
-        phtmet_sys = 'SDSS'
-    if filter_all == filter_SDSS_prime:
-        phtmet_sys = 'SDSS_prime'
+    filters_all = phtmet_sys['filter']
+    filters_EffWM = phtmet_sys['EffWM']
+    phtmet_sys_name = phtmet_sys['sys']
 
     pp = Path(__file__).parent.parent
 
-    os.chdir(f'{pp}/{phtmet_sys}_import_npy')
-    print('Loading in import.npy')
+    os.chdir(f'{pp}/{phtmet_sys_name}_import_npy')
+    print('Loading in import.npy ...')
 
     t_all = np.load('Time_all.npy', allow_pickle=True)
     m_all = np.load('Magnitude_Abs_all.npy', allow_pickle=True)
@@ -252,9 +266,9 @@ def main():
 
     print('Finished loading in import.npy')
 
-    create_clean_directory(f'{pp}/{phtmet_sys}_GP_graph')
+    create_clean_directory(f'{pp}/{phtmet_sys_name}_GP_graph')
 
-    os.chdir(f'{pp}/{phtmet_sys}_GP_graph')
+    os.chdir(f'{pp}/{phtmet_sys_name}_GP_graph')
 
     print('Working on GP interpolaiton')
 
@@ -268,7 +282,7 @@ def main():
         data_all[i], data_meta_all[i] = GP(
             t_all[i], m_all[i], m_err_all[i], 
             claimedtype_all[i], SN_name_all[i], 
-            filter_all, filters_EWM=filters_EWM,
+            filters_all, filters_EffWM,
             lc_len_prepeak=-24, lc_len_postpeak=72
             ).GP_interpolate(
                 normalization=True, LC_graph=True
@@ -279,10 +293,10 @@ def main():
 
     print(f'There are in total successful {len(data_all)} GP interpolated SNe, and {len(t_all) - len(data_all)} SNe not successful')
 
-    create_clean_directory(f'{pp}/{phtmet_sys}_GP_npy')
+    create_clean_directory(f'{pp}/{phtmet_sys_name}_GP_npy')
 
-    np.save(f'{pp}/{phtmet_sys}_GP_npy/lc.npy', np.array(data_all, dtype=object))
-    np.save(f'{pp}/{phtmet_sys}_GP_npy/lc_meta.npy', np.array(data_meta_all, dtype=object))
+    np.save(f'{pp}/{phtmet_sys_name}_GP_npy/lc.npy', np.array(data_all, dtype=object))
+    np.save(f'{pp}/{phtmet_sys_name}_GP_npy/lc_meta.npy', np.array(data_meta_all, dtype=object))
 
     print('End of GP.py')
 

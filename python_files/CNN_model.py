@@ -1,4 +1,3 @@
-from enum import auto
 import subprocess as sp
 import os
 import silence_tensorflow.auto # pylint: disable=unused-import
@@ -29,116 +28,149 @@ import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow.keras.backend as K
 from tensorflow import keras
-from tensorflow.keras.layers import Conv2D, Conv2DTranspose, MaxPooling2D
+from tensorflow.keras import layers
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers import Adam
 absl.logging.set_verbosity(absl.logging.ERROR)
 
 
-os.chdir('/home/ricky/RNNAE')
+os.chdir('/home/ricky/RNNAE/conv_npy')
 
 print('Loading in data...')
-data_GP = np.array(np.load('data_GP.npy', allow_pickle=True))
-data_meta_GP = np.array(np.load('data_meta_GP.npy', allow_pickle=True))
+lc = np.array(np.load('lc.npy', allow_pickle=True))
+lc_meta = np.array(np.load('lc_meta.npy', allow_pickle=True))
 print('Finished loading in data')
 
-def create_input(rep=16, split_portion=0.8, num_of_type=1):
+def create_input(rep=32, split_portion=0.8, num_of_type=1):
 
-	claimedtype = []
+    claimedtype = []
 
-	input = [ [] for i in range(num_of_type+1)]
-	input_train = [ [] for i in range(num_of_type+1)]
-	input_test = [ [] for i in range(num_of_type+1)]
-	type_train = [ [] for i in range(num_of_type+1)]
-	type_test = [ [] for i in range(num_of_type+1)]
+    input = [ [] for i in range(num_of_type+1)]
+    input_train = [ [] for i in range(num_of_type+1)]
+    input_test = [ [] for i in range(num_of_type+1)]
+    type_train = [ [] for i in range(num_of_type+1)]
+    type_test = [ [] for i in range(num_of_type+1)]
 
-	for i in range(len(data_meta_GP)):
+    for i in range(len(lc_meta)):
 
-		if 'Ia' in data_meta_GP[i][-2]:
-				claimedtype.append(0)
-		if 'IIP' in data_meta_GP[i][-2]:
-				claimedtype.append(1)
+        if 'Ia' in lc_meta[i]['type']:
+                claimedtype.append(0)
+        if 'IIP' in lc_meta[i]['type']:
+                claimedtype.append(1)
 
-	for i in range(len(claimedtype)):
+    for i in range(len(claimedtype)):
 
-		input[0].append(list(data_GP[i]))
+        input[0].append(list(lc[i]))
 
-		if claimedtype[i] == 0:
-			input[1].append(list(data_GP[i]))
-		if claimedtype[i] == 1:
-			input[2].append(list(data_GP[i]))
+        if claimedtype[i] == 0:
+            input[1].append(list(lc[i]))
+        if claimedtype[i] == 1:
+            input[2].append(list(lc[i]))
 
-	for i in range(len(input)):
-		
-		input[i] = np.array(input[i])
+    for i in range(len(input)):
+      
+        input[i] = np.array(input[i])
 
-		input_train[i] = input[i][:int(split_portion*len(input[i]))]
-		input_test[i]  = input[i][int(split_portion*len(input[i])):]
+        print(i, input[i].shape)
 
-		input[i]       = K.cast_to_floatx(input[i].transpose((0, 2, 1)))
-		input_train[i] = K.cast_to_floatx(input_train[i].transpose((0, 2, 1)))
-		input_test[i]  = K.cast_to_floatx(input_test[i].transpose((0, 2, 1)))
+        #set the peak to be day 0 again
+        
+        for j in range(input[i].shape[0]):
+            m_max_id = np.argmin(input[i][j][2]) #find maximum by r band
+            t_max = input[i][j][0][m_max_id]
+            input[i][j][0] -= t_max
 
-		input[i]       = np.repeat(input[i][:,:,1:-3], rep, axis=1)
-		input_train[i] = np.repeat(input_train[i][:,:,1:-3], rep, axis=1)
-		input_test[i]  = np.repeat(input_test[i][:,:,1:-3], rep, axis=1)
 
-		input[i]       = np.reshape(input[i],(input[i].shape[0], int(input[i].shape[1]/rep), int(input[i].shape[2]*rep), 1))
-		input_train[i] = np.reshape(input_train[i],(input_train[i].shape[0], int(input_train[i].shape[1]/rep), int(input_train[i].shape[2]*rep), 1))
-		input_test[i]  = np.reshape(input_test[i],(input_test[i].shape[0], int(input_test[i].shape[1]/rep), int(input_test[i].shape[2]*rep), 1))
+        #insert 0 in front of the list and then truncate the end
+        for j in range(input[i].shape[0]):
+            for k in range(int(25+input[i][j][0][0])):
+                for l in range(3):
+                    input[i][j][l+1] = np.insert(input[i][j][l+1], 0, 0)[:96]
 
-		type_train[i]  = claimedtype[:int(split_portion*len(input[i]))]
-		type_test[i]   = claimedtype[int(split_portion*len(input[i])):]
+        input[i]       = K.cast_to_floatx(input[i].transpose((0, 2, 1)))
+        input[i]       = np.repeat(input[i][:,:,1:-3], rep, axis=1)
+        input[i]       = np.reshape(input[i],(input[i].shape[0], int(input[i].shape[1]/rep), int(input[i].shape[2]*rep), 1))
 
-	for i in range(len(input)-1):
-		print(f'For type {claimedtype[i]}, total size of data is {input[i].shape}, training size is {input_train[i].shape}, testing size is {input_test[i].shape}')
+        input_train[i] = input[i][:int(split_portion*len(input[i])),:,:,:]
+        input_test[i]  = input[i][int(split_portion*len(input[i])):,:,:,:]
 
-	return input, input_train, input_test, type_train, type_test
+        type_train[i]  = claimedtype[:int(split_portion*len(input[i]))]
+        type_test[i]   = claimedtype[int(split_portion*len(input[i])):]
 
-def cnnae(input):
+    for i in range(len(input)-1):
+        print(f'For type {claimedtype[i]}, total size of data is {input[i].shape}, training size is {input_train[i].shape}, testing size is {input_test[i].shape}')
 
-	input_seq = keras.Input(shape=(input[0].shape[1], input[0].shape[2], 1))
+    return input, input_train, input_test, type_train, type_test
 
-	x = Conv2D(64, (3, 3), activation="relu", padding="same")(input_seq)
-	x = MaxPooling2D((2, 2), padding="same")(x)
-	x = Conv2D(64, (3, 3), activation="relu", padding="same")(x)
-	encoded = MaxPooling2D((2, 2), padding="same")(x)
+def cnnae(input, d=64):
 
-	# Decoder
-	x = Conv2DTranspose(64, (3, 3), strides=2, activation="relu", padding="same")(encoded)
-	x = Conv2DTranspose(64, (3, 3), strides=2, activation="relu", padding="same")(x)
-	decoded = Conv2D(1, (3, 3), activation="tanh", padding="same")(x)
+    w = input[0].shape[1]
+    h = input[0].shape[2]
 
-	autoencoder = keras.Model(input_seq, decoded)
-	encoder = keras.Model(input_seq, encoded)
+    input_seq = keras.Input(shape=(w, h, 1))
 
-	opt = Adam(learning_rate=0.0001)
+    # Encoder
+    x = layers.BatchNormalization()(input_seq)
+    x = layers.Conv2D(d, (3, 3), activation=layers.LeakyReLU(), padding="same")(x) # 96*96*64
+    x = layers.MaxPooling2D((2, 2), padding="same")(x) # 48*48*64
+    x = layers.Conv2D(d, (3, 3), activation=layers.LeakyReLU(), padding="same")(x)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x) # 24*24*64
+    x = layers.Conv2D(d, (3, 3), activation=layers.LeakyReLU(), padding="same")(x)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x) # 12*12*64
+    x = layers.Conv2D(d, (3, 3), activation=layers.LeakyReLU(), padding="same")(x)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x) # 6*6*64
+    x = layers.Conv2D(d, (3, 3), activation=layers.LeakyReLU(), padding="same")(x)
+    x = layers.MaxPooling2D((2, 2), padding="same")(x) # 3*3*64
+    x = layers.Conv2D(d, (3, 3), activation=layers.LeakyReLU(), padding="same")(x)
+    x = layers.MaxPooling2D((3, 3), padding="same")(x) # 1*1*64
+    x = layers.Flatten()(x) # 64
+    x = layers.Dense(d, activation=layers.LeakyReLU())(x)
+    encoded = layers.Dense(d//4, activation='linear')(x) #16
 
-	autoencoder.compile(optimizer=opt, loss="mse")
-	print(autoencoder.summary())
+    # Decoder
+    x = layers.Dense(d, activation=layers.LeakyReLU())(encoded) #64
+    x = layers.Reshape((1, 1, d), input_shape=(d,))(x) # 1*1*64
+    x = layers.Conv2DTranspose(d, (3, 3), strides=3, activation=layers.LeakyReLU(), padding="same")(x) # 3*3*64
+    x = layers.Conv2DTranspose(d, (3, 3), strides=2, activation=layers.LeakyReLU(), padding="same")(x) # 6*6*64
+    x = layers.Conv2DTranspose(d, (3, 3), strides=2, activation=layers.LeakyReLU(), padding="same")(x) # 12*12*64
+    x = layers.Conv2DTranspose(d, (3, 3), strides=2, activation=layers.LeakyReLU(), padding="same")(x) # 24*24*64
+    x = layers.Conv2DTranspose(d, (3, 3), strides=2, activation=layers.LeakyReLU(), padding="same")(x) # 48*48*64
+    x = layers.Conv2DTranspose(d, (3, 3), strides=2, activation=layers.LeakyReLU(), padding="same")(x) # 96*96*64
+    decoded = layers.Conv2D(1, (3, 3), activation="tanh", padding="same")(x)
 
-	return autoencoder, encoder
+    autoencoder = keras.Model(input_seq, decoded)
+    encoder = keras.Model(input_seq, encoded)
 
-def cnnae_train(autoencoder, input_tmp, patience=10, epochs=200):
+    opt = Adam(learning_rate=0.0001)
 
-	callbacks = EarlyStopping(monitor='val_loss', min_delta=0, patience=patience,
-						verbose=0, mode='min', baseline=None,
-						restore_best_weights=True)
+    autoencoder.compile(optimizer=opt, loss="mse")
+    print(autoencoder.summary())
+
+    return autoencoder, encoder
+
+def cnnae_train(autoencoder, input_tmp, patience=10, epochs=100, **kwargs):
+    
+	if kwargs['callbacks']:
+		callbacks = EarlyStopping(monitor='val_loss', min_delta=0, patience=patience,
+								verbose=0, mode='min', baseline=None,
+								restore_best_weights=True)
+	else:
+		callbacks = None
 
 	history = autoencoder.fit(
 							x=input_tmp,
 							y=input_tmp,
 							validation_split = 0.1,
 							epochs=epochs,
-							verbose=1,
-							callbacks=[callbacks])
+							verbose=2,
+							callbacks=callbacks)
 
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
 	plt.grid()
-	plt.ylim(0, 1e-3)
+	plt.ylim(0, 5e-3)
 
-	os.chdir('/home/ricky/RNNAE')
+	os.chdir('/home/ricky/RNNAE/CNN_product')
 	plt.savefig('CNN training history.pdf')
 
 	return
@@ -147,18 +179,18 @@ def main():
 
 	input, input_train, input_test, type_train, type_test = create_input()
 
-	os.chdir('/home/ricky/RNNAE/CNN_npy')
+	os.chdir('/home/ricky/RNNAE/CNN_product/CNN_npy')
 	np.save('input.npy', np.array(input, dtype=object))
 	np.save('input_train.npy', np.array(input_train, dtype=object))
 	np.save('input_test.npy', np.array(input_test, dtype=object))
 	np.save('type_train.npy', np.array(type_train, dtype=object))
 	np.save('type_test.npy', np.array(type_test, dtype=object))
 
-	autoencoder, encoder = cnnae(input)
-	cnnae_train(autoencoder, input_train[0])
+	autoencoder, encoder = cnnae(input, d=64)
+	cnnae_train(autoencoder, input_train[0], epochs=500, callbacks=False)
 
-	autoencoder.save('/home/ricky/RNNAE/CNN_autoencoder_model')
-	encoder.save('/home/ricky/RNNAE/CNN_encoder_model')
+	autoencoder.save('/home/ricky/RNNAE/CNN_product/CNN_autoencoder_model')
+	encoder.save('/home/ricky/RNNAE/CNN_product/CNN_encoder_model')
 
 	print('end of CNN_model.py')
 

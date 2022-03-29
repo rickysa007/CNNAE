@@ -49,7 +49,7 @@ def pht_conversion(lc_tmp, lc_meta_tmp):
 
     return lc_conv_tmp
 
-def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv, t, m, m_err):
+def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv):
 
     SN_name_merged = [lc_meta_merged[i]['SN_name'] for i in range(len(lc_meta_merged))]
     SN_name_SDSS = [lc_meta_SDSS[i]['SN_name'] for i in range(len(lc_meta_SDSS))]
@@ -83,10 +83,6 @@ def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_S
             plt.scatter(lc_SDSS[dupe_SDSS[i]][0], lc_SDSS[dupe_SDSS[i]][j+1], marker='x', s=40, label='SDSS', color=colors[j])
             plt.scatter(lc_SDSS_p[dupe_SDSS_p[i]][0], lc_SDSS_p[dupe_SDSS_p[i]][j+1], s=20, label='SDSS_p', color=colors[j])
             plt.scatter(lc_conv[dupe_SDSS_p[i]][0], lc_conv[dupe_SDSS_p[i]][j+1], marker='v', s=40, label='converted', color=colors[j])
-            #plt.errorbar(t[dupe_SDSS[i]][j], m[dupe_SDSS[i]][j], m_err[dupe_SDSS[i]][j], label='SDSS actual observation', color=colors[j])
-
-            plt.legend()
-            plt.gca().invert_yaxis()
             plt.grid()
             plt.title(f'{dupe_SN[i]}, {pht_sys[j]}')
 
@@ -123,11 +119,6 @@ def main():
 
     print(lc_SDSS.shape, lc_SDSS_p.shape)
 
-    os.chdir(f'{pp}/SDSS_import_npy')
-    t_SDSS = np.load('Time_all.npy', allow_pickle=True)
-    m_SDSS = np.load('Magnitude_Abs_all.npy', allow_pickle=True)
-    m_err_SDSS = np.load('Magnitude_Abs_err_all.npy', allow_pickle=True)
-
     lc_conv = []
 
     for i in range(lc_SDSS_p.shape[0]):
@@ -149,7 +140,7 @@ def main():
 
     create_clean_directory(f'{pp}/pht_conv_graph')
     os.chdir(f'{pp}/pht_conv_graph')
-    comparison_graph(lc_meta_SDSS_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv, t_SDSS, m_SDSS, m_err_SDSS)
+    comparison_graph(lc_meta_SDSS_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv)
 
     create_clean_directory(f'{pp}/conv_npy')
     np.save(f'{pp}/conv_npy/lc.npy', np.array(lc_SDSS_merged, dtype=object))

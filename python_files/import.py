@@ -278,7 +278,7 @@ def main():
     filter_SDSS_prime = ["g'", "r'", "i'"]
     filter_Johnson = ['B', 'V', 'R', 'I']
 
-    filter_all = filter_SDSS_prime
+    filter_all = filter_SDSS
 
     if filter_all == filter_SDSS:
         phtmet_sys_name = 'SDSS'

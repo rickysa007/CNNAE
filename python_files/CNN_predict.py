@@ -56,10 +56,10 @@ def create_clean_directory(d):
 
     return
 
-def cnnae_test(autoencoder, input_tmp):
+def cnnae_test(autoencoder, input_tmp, input_meta_tmp):
 
-    pred = autoencoder.predict(x=input_tmp, verbose=1)
-    pred_loss = autoencoder.evaluate(x=input_tmp, y=input_tmp, verbose=1)
+    pred = autoencoder.predict(x=[input_tmp, input_meta_tmp], verbose=1)
+    pred_loss = autoencoder.evaluate(x=[input_tmp, input_meta_tmp], y=input_tmp, verbose=1)
 
     return pred, pred_loss
 
@@ -170,14 +170,14 @@ def reconstruction_graph(input_tmp, pred, split, filters=['g', 'r', 'i']):
 
     return
 
-def cnn_predict(autoencoder, input_tmp, **kwargs):
+def cnn_predict(autoencoder, input_tmp, input_meta_tmp, **kwargs):
 
     split = int(0.8*(lc.shape[0]))
 
     if kwargs['training_data']:
         split = 0
 
-    pred, pred_loss = cnnae_test(autoencoder, input_tmp)
+    pred, pred_loss = cnnae_test(autoencoder, input_tmp, input_meta_tmp)
 
     if kwargs['reconstruct_graph']:
         print('Plotting reconstruction graphs...')
@@ -196,16 +196,20 @@ def main():
     print('Encoder finished loading')
 
     os.chdir('/home/ricky/RNNAE/CNN_product/CNN_npy')
-
     input = import_data('input')
     input_train = import_data('input_train')
     input_test = import_data('input_test')
+    input_meta = import_data('input_meta')
+    input_meta_train = import_data('input_meta_train')
+    input_meta_test = import_data('input_meta_test')
     type_train = import_data('type_train')
     type_test = import_data('type_test')
 
-    cnn_predict(autoencoder, input_test[0], reconstruct_graph=False, training_data=False)
+    cnn_predict(autoencoder, input_test[0], input_meta_test[0], reconstruct_graph=False, training_data=False)
 
-    latent_space = encoder.predict(input[0], verbose=1)
+    latent_space = encoder.predict([input[0], input_meta[0]], verbose=1)
+    print(latent_space.shape)
+
     anomaly_id = isolation_forest(latent_space, 3000, 0)
     latent_space_graph(latent_space, anomaly_id, split=0)
 

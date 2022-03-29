@@ -1,8 +1,8 @@
 import os
 import shutil
 import numpy as np
-import math
 import matplotlib.pyplot as plt
+import math
 import george
 from george import kernels
 from scipy.optimize import minimize
@@ -38,8 +38,10 @@ class GP:
 
         self.data = [ [] for i in range(1 + len(self.filters)*2)]
         self.data_plot = [ [] for i in range(1 + len(self.filters)*2)]
-        #self.data_meta = [ [] for i in range(3)]
-        self.data_meta = {'t_len': None, 'type': None, 'SN_name': None, 'mean': 0, 'range': 0}
+        self.data_meta =   {'t_len': None,
+                            'type': None, 'SN_name': None,
+                            'mean': 0, 'range': 1,
+                            'peak_mag': 0, 'Philips_RS': 0, 't_normalised_noise': 0, 'no_near_peak': 0}
 
         self.y_mean = 0
         self.y_range = 0
@@ -55,20 +57,20 @@ class GP:
 
     def x_GP_pred_generator(self):
 
-        self.t_min = self.t[0][0]
-        self.t_max = self.t[0][-1]
+        self.t_first = self.t[0][0]
+        self.t_last = self.t[0][-1]
 
         for i in range(len(self.filters) - 1):
             if self.t[i+1][0] < self.t[i][0]:
-                self.t_min = self.t[i+1][0]
+                self.t_first = self.t[i+1][0]
             if self.t[i+1][-1] > self.t[i][-1]:
-                self.t_max = self.t[i+1][-1]
+                self.t_last = self.t[i+1][-1]
 
         self.x_tmp = []
         self.filters_num_tmp = []
 
         for i, filter in enumerate(self.filters):
-            self.t_tmp = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min), endpoint=False)
+            self.t_tmp = np.linspace(int(self.t_first), int(self.t_last), int(self.t_last) - int(self.t_first), endpoint=False)
             for j in range(len(self.t_tmp)):
                 self.x_tmp.append(self.t_tmp[j])
                 self.filters_num_tmp.append(self.filters_EffWM[i])
@@ -81,7 +83,7 @@ class GP:
     def lc_padding(self):
 
         self.lc_len = self.lc_len_postpeak - self.lc_len_prepeak
-        self.data_t = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min), endpoint=False)
+        self.data_t = np.linspace(int(self.t_first), int(self.t_last), int(self.t_last) - int(self.t_first), endpoint=False)
         self.data_t_len = len(self.data_t)
 
         for i in range(len(self.filters)):
@@ -109,15 +111,32 @@ class GP:
         for i in range(len(self.filters)):
             self.data[i+len(self.filters)+1] = self.data_m_err[i]
 
-        '''self.data_meta[0] = self.data_t_len
-        self.data_meta[1] = self.type
-        self.data_meta[2] = self.SN_name'''
+        return self.data
+
+    def lc_meta(self):
 
         self.data_meta['t_len'] = self.data_t_len
         self.data_meta['type'] = self.type
         self.data_meta['SN_name'] = self.SN_name
 
-        return self.data, self.data_meta
+        self.data_meta['peak_mag'] = np.min(self.data[2])*self.data_meta['range'] + self.data_meta['mean']
+
+        self.max_id = np.argmin(self.data[2]) # finding maximum by r band
+        try:
+            self.data_meta['philips_relation'] = self.data[2][self.max_id] - self.data[2][self.max_id+15]
+        except:
+            self.data_meta['philips_relation'] = 0
+
+        self.data_meta['t_normalised_noise'] = np.sum(self.data[4] + self.data[5] + self.data[6]) / self.data_meta['t_len']
+
+        self.data_t_max = self.data[0][self.max_id]
+        self.score = 0
+        for i in range(len(self.filters)):
+            self.score += np.sum(np.cosh(np.array(self.t[i]) - self.data_t_max)**(-2))
+
+        self.data_meta['no_near_peak'] = self.score
+
+        return self.data_meta
 
 
     def normalization(self):
@@ -140,7 +159,7 @@ class GP:
 
         plt.plot(figsize=(16,12))
 
-        self.data_plot[0] = np.linspace(int(self.t_min), int(self.t_max), int(self.t_max) - int(self.t_min), endpoint=False)
+        self.data_plot[0] = np.linspace(int(self.t_first), int(self.t_last), int(self.t_last) - int(self.t_first), endpoint=False)
         
         for i, filter in enumerate(self.filters):
             
@@ -180,9 +199,10 @@ class GP:
 
         self.x_GP_pred = GP.x_GP_pred_generator(self)
 
-        self.k1 = np.var(self.y)*kernels.ExpSquaredKernel(metric=[100, 10], ndim=2)
-        self.k2 = np.var(self.y)*kernels.ExpKernel(metric=[100, 10], ndim=2)
+        self.k1 = np.var(self.y)*kernels.ExpSquaredKernel(metric=[50, 5], ndim=2)
+        self.k2 = np.var(self.y)*kernels.ExpKernel(metric=[50, 5], ndim=2)
         self.k = self.k1 + self.k2
+        #self.k = np.var(self.y)*kernels.ExpSquaredKernel(metric=[50, 5], ndim=2)
         self.gp = george.GP(self.k, white_noise=np.log(np.var(self.y)), fit_white_noise=True)
 
         self.gp.compute(self.x_GP, self.y_err)
@@ -203,7 +223,8 @@ class GP:
             #print('failed to converge')
             return None, None
 
-        self.data, self.data_meta = GP.lc_padding(self)
+        self.data = GP.lc_padding(self)
+        self.data_meta = GP.lc_meta(self)
 
         #Final quality check
         diff = 0

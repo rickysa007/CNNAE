@@ -84,6 +84,7 @@ def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_S
             plt.scatter(lc_SDSS_p[dupe_SDSS_p[i]][0], lc_SDSS_p[dupe_SDSS_p[i]][j+1], s=20, label='SDSS_p', color=colors[j])
             plt.scatter(lc_conv[dupe_SDSS_p[i]][0], lc_conv[dupe_SDSS_p[i]][j+1], marker='v', s=40, label='converted', color=colors[j])
             plt.grid()
+            plt.legend()
             plt.title(f'{dupe_SN[i]}, {pht_sys[j]}')
 
             plt.show()

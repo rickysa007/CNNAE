@@ -2,7 +2,6 @@ import os
 import shutil
 import numpy as np
 import matplotlib.pyplot as plt
-import math
 import george
 from george import kernels
 from scipy.optimize import minimize
@@ -41,7 +40,7 @@ class GP:
         self.data_meta =   {'t_len': None,
                             'type': None, 'SN_name': None,
                             'mean': 0, 'range': 1,
-                            'peak_mag': 0, 'Philips_RS': 0, 't_normalised_noise': 0, 'no_near_peak': 0}
+                            'peak_mag': 0, 'delta_m': 0, 't_normalised_noise': 0, 'no_near_peak': 0}
 
         self.y_mean = 0
         self.y_range = 0
@@ -70,7 +69,7 @@ class GP:
         self.filters_num_tmp = []
 
         for i, filter in enumerate(self.filters):
-            self.t_tmp = np.linspace(int(self.t_first), int(self.t_last), int(self.t_last) - int(self.t_first), endpoint=False)
+            self.t_tmp = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first), endpoint=False)
             for j in range(len(self.t_tmp)):
                 self.x_tmp.append(self.t_tmp[j])
                 self.filters_num_tmp.append(self.filters_EffWM[i])
@@ -83,7 +82,7 @@ class GP:
     def lc_padding(self):
 
         self.lc_len = self.lc_len_postpeak - self.lc_len_prepeak
-        self.data_t = np.linspace(int(self.t_first), int(self.t_last), int(self.t_last) - int(self.t_first), endpoint=False)
+        self.data_t = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first), endpoint=False)
         self.data_t_len = len(self.data_t)
 
         for i in range(len(self.filters)):
@@ -91,19 +90,19 @@ class GP:
             self.data_m[i] = self.GP_pred[int((i)*len(self.GP_pred)/len(self.filters)):int((i+1)*len(self.GP_pred)/len(self.filters))]
             self.data_m_err[i] = np.sqrt(self.GP_var[int((i)*len(self.GP_var)/len(self.filters)):int((i+1)*len(self.GP_var)/len(self.filters))])
 
-            for j in range(self.lc_len - len(self.data_m[i])):
+            '''for j in range(self.lc_len - len(self.data_m[i])):
                 
                 self.data_m[i] = np.append(self.data_m[i], 0)
                 self.data_m_err[i] = np.append(self.data_m_err[i], 0)
 
-                '''self.data_m[i] = np.append(self.data_m[i], self.data_m[i][-1])
+                self.data_m[i] = np.append(self.data_m[i], self.data_m[i][-1])
                 self.data_m_err[i] = np.append(self.data_m_err[i], self.data_m_err[i][-1])'''
 
-        for i in range(self.lc_len - self.data_t_len):
-            self.data_t = np.append(self.data_t, self.data_t[-1] + 1)
+        '''for i in range(self.lc_len - self.data_t_len):
+            self.data_t = np.append(self.data_t, self.data_t[-1] + 1)'''
 
-        if len(self.data_t) != self.lc_len:
-            print('incorrect length')
+        '''if len(self.data_t) != self.lc_len:
+            print('incorrect length')'''
 
         self.data[0] = self.data_t
         for i in range(len(self.filters)):
@@ -114,25 +113,17 @@ class GP:
         return self.data
 
     def lc_meta(self):
+        #should have been after pht_conv.py???
 
         self.data_meta['t_len'] = self.data_t_len
         self.data_meta['type'] = self.type
         self.data_meta['SN_name'] = self.SN_name
 
-        self.data_meta['peak_mag'] = np.min(self.data[2])*self.data_meta['range'] + self.data_meta['mean']
-
-        self.max_id = np.argmin(self.data[2]) # finding maximum by r band
-        try:
-            self.data_meta['philips_relation'] = self.data[2][self.max_id] - self.data[2][self.max_id+15]
-        except:
-            self.data_meta['philips_relation'] = 0
-
-        self.data_meta['t_normalised_noise'] = np.sum(self.data[4] + self.data[5] + self.data[6]) / self.data_meta['t_len']
-
-        self.data_t_max = self.data[0][self.max_id]
+        self.peak_id = np.argmin(self.data[2]) #finding peak by r band
+        self.data_t_peak = self.data[0][self.peak_id]
         self.score = 0
         for i in range(len(self.filters)):
-            self.score += np.sum(np.cosh(np.array(self.t[i]) - self.data_t_max)**(-2))
+            self.score += np.sum(np.cosh((np.array(self.t[i]) - self.data_t_peak)/10)**(-2))
 
         self.data_meta['no_near_peak'] = self.score
 
@@ -159,7 +150,7 @@ class GP:
 
         plt.plot(figsize=(16,12))
 
-        self.data_plot[0] = np.linspace(int(self.t_first), int(self.t_last), int(self.t_last) - int(self.t_first), endpoint=False)
+        self.data_plot[0] = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first), endpoint=False)
         
         for i, filter in enumerate(self.filters):
             
@@ -179,11 +170,12 @@ class GP:
 
         plt.title(f'{self.SN_name}, {self.type}')
         #plt.xlim(self.lc_len_prepeak, self.lc_len_postpeak)  
-        plt.xlabel('time (day)')
+        plt.xlabel('time (MJD)')
         plt.ylabel('normalized absolute magnitude')
         plt.legend()
         plt.grid()
         plt.gca().invert_yaxis()
+        #plt.show()
         plt.savefig(f'./{self.SN_name}.pdf')
         plt.clf()
 
@@ -228,19 +220,28 @@ class GP:
 
         #Final quality check
         diff = 0
-        #err_ratio = 0
+        var = 0
+        err = 0
 
         for i in range(len(self.filters) - 1):
-
             diff += np.sum(self.data[i+2] - self.data[i+1])
-            #err_ratio += np.sum(self.data[i+4])
+            err += np.sum(self.data[i+4])
 
-        #diff_norm = abs(diff*self.lc_len/self.data_t_len)
-        #err_ratio_norm = abs(err_ratio*self.lc_len/self.data_t_len)
+        for i in range(len(self.filters)):
+            var += np.var(self.data[i+1])
 
-        #if diff_norm/err_ratio_norm < 1:
-        if abs(diff) < 0.1:
+        diff_norm = abs(diff*self.lc_len/self.data_t_len)
+        var_norm = var*self.lc_len/self.data_t_len
+        err_norm = abs(err*self.lc_len/self.data_t_len)
+
+        if diff_norm < 1 or var_norm < 0.05 or err_norm > 15 or self.score < 5:
             return None, None
+
+        #print(diff_norm, var_norm, err_norm, self.score)
+        '''if diff_norm < 1 or var_norm < 0.05 or err_norm > 15 or self.score < 5:
+            print('filtered')
+        else:
+            print('not filtered')'''
 
         if kwargs['LC_graph']:
             GP.lc_graph(self)
@@ -268,7 +269,7 @@ def main():
                        'filter': ["g'", "r'", "i'"],
                        'EffWM': [4.725, 6.203, 7.673]}
 
-    phtmet_sys = SDSS_prime_dict
+    phtmet_sys = SDSS_dict
 
     filters_all = phtmet_sys['filter']
     filters_EffWM = phtmet_sys['EffWM']

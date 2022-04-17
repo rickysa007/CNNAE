@@ -67,39 +67,45 @@ def create_input(rep=32, split_portion=0.8, num_of_type=1):
 
         input[0].append(list(lc[i]))
 
-        input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['Philips_RS'], lc_meta[i]['Philips_RS'], lc_meta[i]['Philips_RS']]
+        #input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m'], lc_meta[i]['t_normalised_noise'], lc_meta[i]['no_near_peak']]
+        input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m']]
         input_meta[0].append(input_meta_tmp)
 
         if claimedtype[i] == 0:
             input[1].append(list(lc[i]))
 
-            input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['Philips_RS'], lc_meta[i]['Philips_RS'], lc_meta[i]['Philips_RS']]
+            #input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m'], lc_meta[i]['t_normalised_noise'], lc_meta[i]['no_near_peak']]
+            input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m']]
             input_meta[1].append(input_meta_tmp)
 
         if claimedtype[i] == 1:
             input[2].append(list(lc[i]))
 
-            input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['Philips_RS'], lc_meta[i]['Philips_RS'], lc_meta[i]['Philips_RS']]
+            #input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m'], lc_meta[i]['t_normalised_noise'], lc_meta[i]['no_near_peak']]
+            input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m']]
             input_meta[2].append(input_meta_tmp)
 
     for i in range(len(input)):
-      
-        input[i] = np.array(input[i])
 
-        #print(i, input[i].shape)
-
-        #set the peak to be day 0 again
-        
-        for j in range(input[i].shape[0]):
-            m_max_id = np.argmin(input[i][j][2]) #find maximum by r band
+        #set the peak to be day 0 again     
+        for j in range(len(input[i])):
+            m_max_id = np.argmin(input[i][j][1]) #find maximum by g band
             t_max = input[i][j][0][m_max_id]
             input[i][j][0] -= t_max
 
-        #insert 0 in front of the list and then truncate the end
-        for j in range(input[i].shape[0]):
+        #insert 0 at the end of the lc (actually no need to pad time, do it here just for consistent shape)
+        for j in range(len(input[i])):
+            for k in range(96-input[i][j][0].shape[0]):
+                for l in range(7):
+                    input[i][j][l] = np.insert(input[i][j][l], -1, 0)
+
+        #insert 0 in front of the lc and then truncate the end
+        for j in range(len(input[i])):
             for k in range(int(25+input[i][j][0][0])):
-                for l in range(3):
+                for l in range(6):
                     input[i][j][l+1] = np.insert(input[i][j][l+1], 0, 0)[:96]
+
+        input[i] = np.array(input[i])
 
         input[i]             = K.cast_to_floatx(input[i].transpose((0, 2, 1)))
         input[i]             = np.repeat(input[i][:,:,1:-3], rep, axis=1)
@@ -120,13 +126,14 @@ def create_input(rep=32, split_portion=0.8, num_of_type=1):
 
     return input, input_train, input_test, input_meta, input_meta_train, input_meta_test, type_train, type_test
 
-def cnnae(input, d=64):
+def cnnae(input, input_meta, d=64):
 
     w = input[0].shape[1]
     h = input[0].shape[2]
+    a = input_meta[0].shape[1]
 
     input_seq = keras.Input(shape=(w, h, 1))
-    input_meta = keras.Input(shape=(4))
+    input_meta = keras.Input(shape=(a))
 
     # Encoder
     x = layers.BatchNormalization()(input_seq)
@@ -144,7 +151,7 @@ def cnnae(input, d=64):
     x = layers.MaxPooling2D((3, 3), padding="same")(x) # 1*1*64
     x = layers.Flatten()(x) # 64
     x = layers.Dense(d, activation=layers.LeakyReLU())(x)
-    x = layers.Dense(d//4, activation='linear')(x) #16
+    x = layers.Dense(d//8, activation='linear')(x) #16
     encoded = layers.concatenate([x, input_meta], axis=-1)
 
     # Decoder
@@ -209,7 +216,7 @@ def main():
     np.save('type_train.npy', np.array(type_train, dtype=object))
     np.save('type_test.npy', np.array(type_test, dtype=object))
 
-    autoencoder, encoder = cnnae(input, d=64)
+    autoencoder, encoder = cnnae(input, input_meta, d=64)
     cnnae_train(autoencoder, input_train[0], input_meta_train[0], epochs=500, callbacks=False)
 
     autoencoder.save('/home/ricky/RNNAE/CNN_product/CNN_autoencoder_model')

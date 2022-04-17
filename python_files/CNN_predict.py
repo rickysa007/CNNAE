@@ -63,6 +63,14 @@ def cnnae_test(autoencoder, input_tmp, input_meta_tmp):
 
     return pred, pred_loss
 
+def latent_space_concatenation(latent_space, meta_data: list, split):
+    latent_space_add = []
+    for i in range(latent_space.shape[0]):
+        latent_space_add.append([lc_meta[i+split][j] for j in meta_data])
+    latent_space_add = np.array(latent_space_add)
+    
+    return np.concatenate((latent_space, latent_space_add), axis=-1)
+
 def isolation_forest(latent_space, n_tree, split):
 
     clf = IsolationForest(n_estimators=n_tree, warm_start=True)
@@ -76,10 +84,15 @@ def isolation_forest(latent_space, n_tree, split):
 
     for i, ano in enumerate(anomaly_id):
         name = lc_meta[ano+split]['SN_name']
+        peak_mag = "{:.2f}".format(lc_meta[ano+split]['peak_mag'])
+        delta_m = "{:.2f}".format(lc_meta[ano+split]['delta_m'])
+        t_normalised_noise = "{:.2f}".format(lc_meta[ano+split]['t_normalised_noise'])
+        no_near_peak = "{:.2f}".format(lc_meta[ano+split]['no_near_peak'])
+
         try:
-            shutil.copy(f'/home/ricky/RNNAE/SDSS_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}.pdf')
+            shutil.copy(f'/home/ricky/RNNAE/SDSS_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}_{peak_mag}_{delta_m}_{t_normalised_noise}_{no_near_peak}.pdf')
         except:
-            shutil.copy(f'/home/ricky/RNNAE/SDSS_prime_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}.pdf')
+            shutil.copy(f'/home/ricky/RNNAE/SDSS_prime_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}_{peak_mag}_{delta_m}_{t_normalised_noise}_{no_near_peak}.pdf')
 
     return anomaly_id
 
@@ -210,8 +223,13 @@ def main():
     latent_space = encoder.predict([input[0], input_meta[0]], verbose=1)
     print(latent_space.shape)
 
-    anomaly_id = isolation_forest(latent_space, 3000, 0)
+    anomaly_id = isolation_forest(latent_space, 10000, 0)
     latent_space_graph(latent_space, anomaly_id, split=0)
+
+    '''latent_space_concatentate = latent_space_concatenation(latent_space, ['t_normalised_noise', 'no_near_peak'], split=0)
+
+    anomaly_id = isolation_forest(latent_space_concatentate, 10000, 0)
+    latent_space_graph(latent_space_concatentate, anomaly_id, split=0)'''
 
     print('End of CNN_predict.py')
 

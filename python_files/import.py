@@ -106,8 +106,8 @@ class QC:
                     return False
                 else:
                     self.N_specified_bands += len(self.t_duration)
-        
-        if self.N_specified_bands > num: # Select for SN with more than num=40 data points
+
+        if self.N_specified_bands > num: # Select for SN with more than num=20 data points
             try:
                 float(self.json_data_temp[self.SN_name]['lumdist'][0]['value'])
                 float(self.json_data_temp[self.SN_name]['redshift'][0]['value'])
@@ -278,7 +278,7 @@ def main():
     filter_SDSS_prime = ["g'", "r'", "i'"]
     filter_Johnson = ['B', 'V', 'R', 'I']
 
-    filter_all = filter_SDSS
+    filter_all = filter_SDSS_prime
 
     if filter_all == filter_SDSS:
         phtmet_sys_name = 'SDSS'

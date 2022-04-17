@@ -86,8 +86,8 @@ def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_S
             plt.grid()
             plt.legend()
             plt.title(f'{dupe_SN[i]}, {pht_sys[j]}')
-
-            plt.show()
+            plt.gca().invert_yaxis()
+            #plt.show()
             plt.savefig(f'{dupe_SN[i]}_{pht_sys[j]}_band.pdf')
             plt.close()
 
@@ -128,11 +128,11 @@ def main():
 
         lc_conv.append(lc_conv_tmp)
 
-    lc_conv = np.array(lc_conv)
+    lc_conv = np.array(lc_conv, dtype=object)
 
-    for i in range(lc_SDSS.shape[0]):
+    '''for i in range(lc_SDSS.shape[0]):
         if len(lc_SDSS[i][0]) != 96:
-            print(f'{i}, {len(lc_SDSS[i][0])}')
+            print(f'{i}, {len(lc_SDSS[i][0])}')'''
 
     lc_SDSS_merged = np.concatenate((lc_SDSS, lc_conv))
     lc_meta_SDSS_merged = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))

@@ -74,7 +74,7 @@ def avoid_duplicate_name(lc_meta_SDSS, lc_meta_SDSS_p):
 
 def comparison_graph(dupe_SN, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv):
 
-    SN_name_SDSS = [lc_meta_SDSS[i]['SN_name'] for i in range(len(lc_meta_SDSS))]
+    SN_name_SDSS   = [lc_meta_SDSS[i]['SN_name'] for i in range(len(lc_meta_SDSS))]
     SN_name_SDSS_p = [lc_meta_SDSS_p[i]['SN_name'] for i in range(len(lc_meta_SDSS_p))]
 
     dupe_SN_p = []
@@ -112,6 +112,49 @@ def comparison_graph(dupe_SN, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, 
 
     return
 
+def qc_graph(qc):
+
+    diff = []
+    var = []
+    noise = []
+    score = []
+
+    for i in range(len(qc)):
+        diff.append(qc[i]['diff'])
+        var.append(qc[i]['var'])
+        noise.append(qc[i]['noise'])
+        score.append(qc[i]['score'])
+
+    fig, axs = plt.subplots(2, 2, figsize=(18, 10))
+    fig.suptitle('Histograms of quality indicators', fontsize=15)
+    xlabel=[['sum of difference', 'sum of variance'], ['sum of uncertainty', 'peak quality score']]
+    
+    axs[0][0].hist(diff, bins=2*round(max(diff)))
+    axs[0][1].hist(var, bins=40*round(max(var)))
+    axs[1][0].hist(noise, bins=round(max(noise)))
+    axs[1][1].hist(score, bins=round(max(score)))
+
+    axs[0][0].axvspan(0, 1, alpha=0.2, color='red')
+    axs[0][1].axvspan(0, 0.05, alpha=0.2, color='red')
+    axs[1][0].axvspan(20, max(noise), alpha=0.2, color='red')
+    axs[1][1].axvspan(0, 5, alpha=0.2, color='red')
+
+    axs[0][0].set_xlim(0, 60)
+    axs[0][1].set_xlim(0, 1)
+    axs[1][0].set_xlim(0, 80)
+    axs[1][1].set_xlim(0, 60)
+
+    for i in range(2):
+        for j in range(2):
+            axs[i][j].set_xlabel(xlabel[i][j], fontsize=12)
+            axs[i][j].set_ylabel('Count', fontsize=12)
+            axs[i][j].grid()
+
+    plt.savefig('./qc.pdf', bbox_inches='tight')
+    plt.close()
+
+    return
+
 def create_clean_directory(d):
 
     isExist = os.path.exists(d)
@@ -128,12 +171,14 @@ def main():
     pp = Path(__file__).parent.parent
 
     os.chdir(f'{pp}/SDSS_GP_npy')
-    lc_SDSS = np.array(np.load('lc.npy', allow_pickle=True))
+    lc_SDSS      = np.array(np.load('lc.npy', allow_pickle=True))
     lc_meta_SDSS = np.array(np.load('lc_meta.npy', allow_pickle=True))
+    lc_qc_SDSS   = np.array(np.load('lc_qc.npy', allow_pickle=True))
 
     os.chdir(f'{pp}/SDSS_prime_GP_npy')
-    lc_SDSS_p = np.array(np.load('lc.npy', allow_pickle=True))
+    lc_SDSS_p      = np.array(np.load('lc.npy', allow_pickle=True))
     lc_meta_SDSS_p = np.array(np.load('lc_meta.npy', allow_pickle=True))
+    lc_qc_SDSS_p = np.array(np.load('lc_qc.npy', allow_pickle=True))
 
     print(lc_SDSS.shape, lc_SDSS_p.shape)
 
@@ -155,6 +200,10 @@ def main():
 
     lc_meta_SDSS_p, dupe_SN = avoid_duplicate_name(lc_meta_SDSS, lc_meta_SDSS_p)
     lc_meta_SDSS_merged = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))
+
+    lc_qc_SDSS_merged = np.concatenate((lc_qc_SDSS, lc_qc_SDSS_p))
+    os.chdir(f'{pp}')
+    qc_graph(lc_qc_SDSS_merged)
 
     print(f'Shape of light curves after conversion is {lc_SDSS_merged.shape}')
 

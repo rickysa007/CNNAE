@@ -248,12 +248,6 @@ class GP:
 
         return self.data, self.data_meta, self.data_qc
 
-def qc_graph(data_qc_all):
-
-
-
-    return
-
 def create_clean_directory(d):
 
     isExist = os.path.exists(d)
@@ -313,7 +307,7 @@ def main():
             filters_all, filters_EffWM,
             lc_len_prepeak=-24, lc_len_postpeak=72
             ).GP_interpolate(
-                normalization=True, LC_graph=False
+                normalization=True, LC_graph=True
                 )
     
     data_all      = list(filter(None, data_all))
@@ -328,6 +322,7 @@ def main():
 
     np.save(f'{pp}/{phtmet_sys_name}_GP_npy/lc.npy', np.array(data_all, dtype=object))
     np.save(f'{pp}/{phtmet_sys_name}_GP_npy/lc_meta.npy', np.array(data_meta_all, dtype=object))
+    np.save(f'{pp}/{phtmet_sys_name}_GP_npy/lc_qc.npy', np.array(data_qc_all, dtype=object))
 
     print('End of GP.py')
 

@@ -277,7 +277,7 @@ def main():
     latent_space = encoder.predict([input[0], input_meta[0]], verbose=1)
     print(latent_space.shape)
 
-    anomaly_id = isolation_forest(latent_space, 1000, 0)
+    anomaly_id = isolation_forest(latent_space, 5000, 0)
     cdf(anomaly_id, 0)
     
     latent_space_graph(latent_space, anomaly_id, split=0)

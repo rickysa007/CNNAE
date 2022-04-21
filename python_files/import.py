@@ -236,12 +236,12 @@ class LC_Preprocess:
                         self.m_err[j].append(0.3)
 
         if kwargs['peak_alignment']:
-            LC_Preprocess.lc_truncation(self, peak_alignment=True)
+            self.lc_truncation(peak_alignment=True)
         else:
-            LC_Preprocess.lc_truncation(self, peak_alignment=False)
+            self.lc_truncation(peak_alignment=False)
 
         if kwargs['LC_graph']:
-            LC_Preprocess.lc_graph(self)
+            self.lc_graph()
         
         return self.t, self.m, self.m_err, self.claimedtype, self.SN_name
 
@@ -278,7 +278,7 @@ def main():
     filter_SDSS_prime = ["g'", "r'", "i'"]
     filter_Johnson = ['B', 'V', 'R', 'I']
 
-    filter_all = filter_SDSS_prime
+    filter_all = filter_SDSS
 
     if filter_all == filter_SDSS:
         phtmet_sys_name = 'SDSS'

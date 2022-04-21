@@ -40,7 +40,8 @@ class GP:
         self.data_meta =   {'t_len': None,
                             'type': None, 'SN_name': None,
                             'mean': 0, 'range': 1,
-                            'peak_mag': 0, 'delta_m': 0, 't_normalised_noise': 0, 'no_near_peak': 0}
+                            'peak_mag': 0, 'delta_m': 0, 'no_near_peak': 0}
+        self.data_qc =  {'diff': 0, 'var': 0, 'noise': 0, 'score': 0}
 
         self.y_mean = 0
         self.y_range = 0
@@ -53,23 +54,18 @@ class GP:
                 self.y_err.append(self.m_err[i][j])
                 self.filters_num.append(self.filters_EffWM[i])
 
-
     def x_GP_pred_generator(self):
 
-        self.t_first = self.t[0][0]
-        self.t_last = self.t[0][-1]
-
-        for i in range(len(self.filters) - 1):
-            if self.t[i+1][0] < self.t[i][0]:
-                self.t_first = self.t[i+1][0]
-            if self.t[i+1][-1] > self.t[i][-1]:
-                self.t_last = self.t[i+1][-1]
+        self.t_first = min([self.t[i][0] for i in range(len(self.filters))])
+        self.t_last = max([self.t[i][-1] for i in range(len(self.filters))])
 
         self.x_tmp = []
         self.filters_num_tmp = []
 
         for i, filter in enumerate(self.filters):
-            self.t_tmp = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first), endpoint=False)
+            self.t_tmp = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first) + 1, endpoint=True)
+            if len(self.t_tmp) == 97:
+                self.t_tmp = self.t_tmp[:-1]
             for j in range(len(self.t_tmp)):
                 self.x_tmp.append(self.t_tmp[j])
                 self.filters_num_tmp.append(self.filters_EffWM[i])
@@ -82,8 +78,11 @@ class GP:
     def lc_padding(self):
 
         self.lc_len = self.lc_len_postpeak - self.lc_len_prepeak
-        self.data_t = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first), endpoint=False)
+        self.data_t = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first) + 1, endpoint=True)
         self.data_t_len = len(self.data_t)
+
+        if self.data_t_len == 97:
+                self.data_t = self.data_t[:-1]
 
         for i in range(len(self.filters)):
 
@@ -113,7 +112,6 @@ class GP:
         return self.data
 
     def lc_meta(self):
-        #should have been after pht_conv.py???
 
         self.data_meta['t_len'] = self.data_t_len
         self.data_meta['type'] = self.type
@@ -125,9 +123,9 @@ class GP:
         for i in range(len(self.filters)):
             self.score += np.sum(np.cosh((np.array(self.t[i]) - self.data_t_peak)/10)**(-2))
 
-        self.data_meta['no_near_peak'] = self.score
+        self.data_qc['score'] = self.score
 
-        return self.data_meta
+        return self.data_meta, self.data_qc
 
 
     def normalization(self):
@@ -150,8 +148,10 @@ class GP:
 
         plt.plot(figsize=(16,12))
 
-        self.data_plot[0] = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first), endpoint=False)
-        
+        self.data_plot[0] = np.linspace(round(self.t_first), round(self.t_last), round(self.t_last) - round(self.t_first) + 1, endpoint=True)
+        if len(self.data_plot[0]) == 97:
+            self.data_plot[0] = self.data_plot[0][:-1]
+
         for i, filter in enumerate(self.filters):
             
             if self.y_range != 0:
@@ -181,15 +181,35 @@ class GP:
 
         return
 
+    def qc(self, **kwargs):
+
+        diff = 0
+        var = 0
+        err = 0
+
+        for i in range(len(self.filters) - 1):
+            diff += np.sum(self.data[i+2] - self.data[i+1])
+
+        for i in range(len(self.filters)):
+            var += np.var(self.data[i+1])
+            err += np.sum(self.data[i+4])
+
+        diff_norm = abs(diff*self.lc_len/self.data_t_len)
+        var_norm = var*self.lc_len/self.data_t_len
+        err_norm = abs(err*self.lc_len/self.data_t_len)
+
+        return diff_norm, var_norm, err_norm
 
     def GP_interpolate(self, **kwargs):
 
         if kwargs['normalization']:
-            GP.normalization(self)
+            self.normalization()
 
         self.x_GP = np.vstack([self.x, self.filters_num]).T
 
-        self.x_GP_pred = GP.x_GP_pred_generator(self)
+        self.x_GP_pred = self.x_GP_pred_generator()
+
+        #print(self.x_GP, self.x_GP_pred)
 
         self.k1 = np.var(self.y)*kernels.ExpSquaredKernel(metric=[50, 5], ndim=2)
         self.k2 = np.var(self.y)*kernels.ExpKernel(metric=[50, 5], ndim=2)
@@ -213,40 +233,26 @@ class GP:
             self.GP_pred, self.GP_var = self.gp.predict(self.y, self.x_GP_pred, return_var=True)
         except Exception:
             #print('failed to converge')
-            return None, None
+            return None, None, None
 
-        self.data = GP.lc_padding(self)
-        self.data_meta = GP.lc_meta(self)
+        self.data = self.lc_padding()
+        self.data_meta, self.data_qc = self.lc_meta()
 
-        #Final quality check
-        diff = 0
-        var = 0
-        err = 0
+        self.data_qc['diff'], self.data_qc['var'], self.data_qc['noise'] = self.qc()
 
-        for i in range(len(self.filters) - 1):
-            diff += np.sum(self.data[i+2] - self.data[i+1])
-            err += np.sum(self.data[i+4])
-
-        for i in range(len(self.filters)):
-            var += np.var(self.data[i+1])
-
-        diff_norm = abs(diff*self.lc_len/self.data_t_len)
-        var_norm = var*self.lc_len/self.data_t_len
-        err_norm = abs(err*self.lc_len/self.data_t_len)
-
-        if diff_norm < 1 or var_norm < 0.05 or err_norm > 15 or self.score < 5:
-            return None, None
-
-        #print(diff_norm, var_norm, err_norm, self.score)
-        '''if diff_norm < 1 or var_norm < 0.05 or err_norm > 15 or self.score < 5:
-            print('filtered')
-        else:
-            print('not filtered')'''
+        if self.data_qc['diff'] < 1 or self.data_qc['var'] < 0.05 or self.data_qc['noise'] > 20 or self.data_qc['score'] < 5:
+            return None, None, self.data_qc
 
         if kwargs['LC_graph']:
-            GP.lc_graph(self)
+            self.lc_graph()
 
-        return self.data, self.data_meta
+        return self.data, self.data_meta, self.data_qc
+
+def qc_graph(data_qc_all):
+
+
+
+    return
 
 def create_clean_directory(d):
 
@@ -294,26 +300,29 @@ def main():
 
     print('Working on GP interpolaiton')
 
-    data_all = [ [] for i in t_all]
+    data_all      = [ [] for i in t_all]
     data_meta_all = [ [] for i in t_all]
+    data_qc_all   = [ [] for i in t_all]
 
     for i in tqdm(range(len(t_all))):
 
         #LC_graph_bool = np.random.rand(1) > 0.99
-
-        data_all[i], data_meta_all[i] = GP(
+        data_all[i], data_meta_all[i], data_qc_all[i] = GP(
             t_all[i], m_all[i], m_err_all[i], 
             claimedtype_all[i], SN_name_all[i], 
             filters_all, filters_EffWM,
             lc_len_prepeak=-24, lc_len_postpeak=72
             ).GP_interpolate(
-                normalization=True, LC_graph=True
+                normalization=True, LC_graph=False
                 )
     
-    data_all = list(filter(None, data_all))
+    data_all      = list(filter(None, data_all))
     data_meta_all = list(filter(None, data_meta_all))
+    data_qc_all   = list(filter(None, data_qc_all))
 
     print(f'There are in total successful {len(data_all)} GP interpolated SNe, and {len(t_all) - len(data_all)} SNe not successful')
+
+    os.chdir(f'{pp}')
 
     create_clean_directory(f'{pp}/{phtmet_sys_name}_GP_npy')
 

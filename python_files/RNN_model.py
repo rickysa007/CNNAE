@@ -38,10 +38,10 @@ absl.logging.set_verbosity(absl.logging.ERROR)
 
 # Save graphs --done, refine functions, anamoly dectection --done, better masking --done, Fourier Transform of lc.
 
-os.chdir('/home/ricky/RNNAE')
+os.chdir('/home/ricky/RNNAE/conv_npy')
 
-data_GP = np.array(np.load('data_GP.npy', allow_pickle=True))
-data_meta_GP = np.array(np.load('data_meta_GP.npy', allow_pickle=True))
+lc = np.array(np.load('lc.npy', allow_pickle=True))
+lc_meta = np.array(np.load('lc_meta.npy', allow_pickle=True))
 
 def create_input(split_portion=0.8, num_of_type=1):
 
@@ -53,24 +53,43 @@ def create_input(split_portion=0.8, num_of_type=1):
     type_train = [ [] for i in range(num_of_type+1)]
     type_test = [ [] for i in range(num_of_type+1)]
 
-    for i in range(len(data_meta_GP)):
+    for i in range(len(lc_meta)):
 
-        if 'Ia' in data_meta_GP[i][-2]:
+        if 'Ia' in lc_meta[i]['type']:
             claimedtype.append(0)
-        if 'IIP' in data_meta_GP[i][-2]:
+        if 'IIP' in lc_meta[i]['type']:
             claimedtype.append(1)
 
     for i in range(len(claimedtype)):
 
-        input[0].append(list(data_GP[i]))
+        input[0].append(list(lc[i]))
 
         if claimedtype[i] == 0:
-            input[1].append(list(data_GP[i]))
+            input[1].append(list(lc[i]))
         if claimedtype[i] == 1:
-            input[2].append(list(data_GP[i]))
+            input[2].append(list(lc[i]))
 
     for i in range(len(input)):
-        input[i] = np.array(input[i])
+
+        #set the peak to be day 0 again     
+        for j in range(len(input[i])):
+            m_max_id = np.argmin(input[i][j][1]) #find maximum by g band
+            t_max = input[i][j][0][m_max_id]
+            input[i][j][0] -= t_max
+
+        #insert 0 at the end of the lc (actually no need to pad time, do it here just for consistent shape)
+        for j in range(len(input[i])):
+            for k in range(96-input[i][j][0].shape[0]):
+                for l in range(7):
+                    input[i][j][l] = np.insert(input[i][j][l], -1, 0)
+
+        #insert 0 in front of the lc and then truncate the end
+        for j in range(len(input[i])):
+            for k in range(int(25+input[i][j][0][0])):
+                for l in range(6):
+                    input[i][j][l+1] = np.insert(input[i][j][l+1], 0, 0)[:96]
+
+        input[i] = np.array(input[i], dtype=object)
 
         input_train[i] = input[i][:int(split_portion*len(input[i]))]
         input_test[i]  = input[i][int(split_portion*len(input[i])):]
@@ -93,8 +112,8 @@ def masking(input_tmp, split):
     input_tmp = input_tmp
 
     for i in range(input_tmp.shape[0]):
-        tmp1 = [1 for j in range(data_GP[i+split][-3])]
-        tmp2 = [0 for j in range(input_tmp.shape[1] - data_GP[i+split][-3])]
+        tmp1 = [1 for j in range(lc[i+split][-3])]
+        tmp2 = [0 for j in range(input_tmp.shape[1] - lc[i+split][-3])]
         tmp = np.hstack((tmp1, tmp2))
         weight.append(tmp)
 
@@ -107,7 +126,7 @@ def masking(input_tmp, split):
 
 def custom_loss(y_true, y_pred, mask):
 
-    last_band_id = int((data_GP.shape[1] - 3 - 1)/2)+1
+    last_band_id = int((lc.shape[1] - 3 - 1)/2)+1
 
     y_true_masked = tf.math.multiply(y_true, mask)
     y_pred_masked = tf.math.multiply(y_pred, mask[:,:,1:last_band_id])
@@ -118,7 +137,7 @@ def custom_loss(y_true, y_pred, mask):
 
 def custom_loss2(y_true, y_pred):
 
-    last_band_id = int((data_GP.shape[1] - 3 - 1)/2)+1
+    last_band_id = int((lc.shape[1] - 3 - 1)/2)+1
     
     mse = tf.keras.losses.mean_squared_error(y_true = y_true[:,:,1:last_band_id], y_pred = y_pred[:,:,:])
 
@@ -229,7 +248,7 @@ def rnnae_train2(autoencoder, input_tmp, patience=40, epochs=1000):
     plt.grid()
     plt.ylim(0, 0.05)
     
-    os.chdir('/home/ricky/RNNAE')
+    os.chdir('/home/ricky/RNNAE/RNN_product')
     plt.savefig('RNN training history.pdf')
 
     return
@@ -238,7 +257,7 @@ def main():
 
     input, input_train, input_test, type_train, type_test = create_input()
 
-    os.chdir('/home/ricky/RNNAE/RNN_npy')
+    os.chdir('/home/ricky/RNNAE/RNN_product/RNN_npy')
     np.save('input.npy', np.array(input, dtype=object))
     np.save('input_train.npy', np.array(input_train, dtype=object))
     np.save('input_test.npy', np.array(input_test, dtype=object))
@@ -248,8 +267,8 @@ def main():
     autoencoder, encoder = rnnae2(input)
     rnnae_train2(autoencoder, input_train[0], 30, 1000)
 
-    autoencoder.save('/home/ricky/RNNAE/RNN_autoencoder_model')
-    encoder.save('/home/ricky/RNNAE/RNN_encoder_model')
+    autoencoder.save('/home/ricky/RNNAE/RNN_product/RNN_autoencoder_model')
+    encoder.save('/home/ricky/RNNAE/RNN_product/RNN_encoder_model')
 
     print('end of RNN_model.py')
 

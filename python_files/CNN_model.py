@@ -68,21 +68,21 @@ def create_input(rep=32, split_portion=0.8, num_of_type=1):
         input[0].append(list(lc[i]))
 
         #input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m'], lc_meta[i]['t_normalised_noise'], lc_meta[i]['no_near_peak']]
-        input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m']]
+        input_meta_tmp = [lc_meta[i]['delta_m'], lc_meta[i]['peak_mag']]
         input_meta[0].append(input_meta_tmp)
 
         if claimedtype[i] == 0:
             input[1].append(list(lc[i]))
 
             #input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m'], lc_meta[i]['t_normalised_noise'], lc_meta[i]['no_near_peak']]
-            input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m']]
+            input_meta_tmp = [lc_meta[i]['delta_m'], lc_meta[i]['peak_mag']]
             input_meta[1].append(input_meta_tmp)
 
         if claimedtype[i] == 1:
             input[2].append(list(lc[i]))
 
             #input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m'], lc_meta[i]['t_normalised_noise'], lc_meta[i]['no_near_peak']]
-            input_meta_tmp = [lc_meta[i]['peak_mag'], lc_meta[i]['delta_m']]
+            input_meta_tmp = [lc_meta[i]['delta_m'], lc_meta[i]['peak_mag']]
             input_meta[2].append(input_meta_tmp)
 
     for i in range(len(input)):
@@ -151,8 +151,8 @@ def cnnae(input, input_meta, d=64):
     x = layers.MaxPooling2D((3, 3), padding="same")(x) # 1*1*64
     x = layers.Flatten()(x) # 64
     x = layers.Dense(d, activation=layers.LeakyReLU())(x)
-    x = layers.Dense(d//8, activation='linear')(x) #16
-    encoded = layers.concatenate([x, input_meta], axis=-1)
+    x = layers.Dense(8, activation='linear')(x) #8
+    encoded = layers.concatenate([x, input_meta], axis=-1) #10
 
     # Decoder
     x = layers.Dense(d, activation=layers.LeakyReLU())(encoded) #64
@@ -175,7 +175,7 @@ def cnnae(input, input_meta, d=64):
 
     return autoencoder, encoder
 
-def cnnae_train(autoencoder, input_tmp, input_meta_tmp, patience=10, epochs=100, **kwargs):
+def cnnae_train(autoencoder, input_tmp, input_meta_tmp, patience=10, epochs=500, **kwargs):
     
 	if kwargs['callbacks']:
 		callbacks = EarlyStopping(monitor='val_loss', min_delta=0, patience=patience,
@@ -195,7 +195,7 @@ def cnnae_train(autoencoder, input_tmp, input_meta_tmp, patience=10, epochs=100,
 	plt.plot(history.history['loss'])
 	plt.plot(history.history['val_loss'])
 	plt.grid()
-	plt.ylim(0, 5e-3)
+	plt.ylim(0, 1e-2)
 
 	os.chdir('/home/ricky/RNNAE/CNN_product')
 	plt.savefig('CNN training history.pdf')

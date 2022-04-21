@@ -86,15 +86,57 @@ def isolation_forest(latent_space, n_tree, split):
         name = lc_meta[ano+split]['SN_name']
         peak_mag = "{:.2f}".format(lc_meta[ano+split]['peak_mag'])
         delta_m = "{:.2f}".format(lc_meta[ano+split]['delta_m'])
-        t_normalised_noise = "{:.2f}".format(lc_meta[ano+split]['t_normalised_noise'])
-        no_near_peak = "{:.2f}".format(lc_meta[ano+split]['no_near_peak'])
+        #t_normalised_noise = "{:.2f}".format(lc_meta[ano+split]['t_normalised_noise'])
+        #no_near_peak = "{:.2f}".format(lc_meta[ano+split]['no_near_peak'])
 
+        # naming problem?
         try:
-            shutil.copy(f'/home/ricky/RNNAE/SDSS_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}_{peak_mag}_{delta_m}_{t_normalised_noise}_{no_near_peak}.pdf')
-        except:
-            shutil.copy(f'/home/ricky/RNNAE/SDSS_prime_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i}_{name}_{peak_mag}_{delta_m}_{t_normalised_noise}_{no_near_peak}.pdf')
-
+            shutil.copy(f'/home/ricky/RNNAE/SDSS_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i+1}_{name}_{peak_mag}_{delta_m}.pdf')
+        except OSError:
+            try:
+                shutil.copy(f'/home/ricky/RNNAE/SDSS_prime_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i+1}_{name}_{peak_mag}_{delta_m}.pdf')
+            except OSError:
+                name = name.replace('_prime','')
+                shutil.copy(f'/home/ricky/RNNAE/SDSS_prime_GP_graph/{name}.pdf', f'/home/ricky/RNNAE/CNN_product/CNN_anomaly_graph/{i+1}_{name}_{peak_mag}_{delta_m}.pdf')
+    
     return anomaly_id
+
+def cdf(anomaly_id, split=0):
+
+    os.chdir('/home/ricky/RNNAE/CNN_product')
+
+    rank_normalIa = []
+    rank_peculiarIa = []
+
+    for i, ano in enumerate(anomaly_id):
+        if lc_meta[ano+split]['type'] == 'Ia':
+            rank_normalIa.append(i)
+        else:
+            rank_peculiarIa.append(i)
+
+    count, bins_count = np.histogram(rank_normalIa, bins=len(anomaly_id))
+    pdf = count/sum(count)
+    cdf_n = np.cumsum(pdf)
+
+    count, bins_count = np.histogram(rank_peculiarIa, bins=len(anomaly_id))
+    pdf = count/sum(count)
+    cdf_p = np.cumsum(pdf)
+
+    fig = plt.figure(figsize=(8, 6))
+    plt.plot(bins_count[1:], cdf_n, label="Normal SNeIa")
+    plt.plot(bins_count[1:], cdf_p, label="Subtype SNeIa")
+
+    plt.xlabel('Anomaly Ranking', fontsize=15)
+    plt.ylabel('CDF', fontsize=15)
+    plt.title('CDF of anomaly ranking')
+
+    plt.grid()
+    plt.legend()
+
+    plt.savefig('cdf.pdf', bbox_inches='tight')
+    plt.close()
+
+    return
 
 def latent_space_graph(latent_space, anomaly_id, split):
 
@@ -113,17 +155,32 @@ def latent_space_graph(latent_space, anomaly_id, split):
             fig = plt.figure(figsize=(8, 6))
             plt.grid() 
             plt.scatter(latent_space[:,i], latent_space[:,i+j+1], c=color, cmap='viridis', s=6)
-            plt.colorbar()
-            plt.title(f'id {i} vs id {i+j+1}')
-            plt.savefig(f'id_{i}_vs_id_{i+j+1}.pdf', bbox_inches='tight')
+            
+            if i == latent_space.shape[1]-2:
+                plt.xlabel('\u0394 M_15', fontsize=12)
+            else:
+                plt.xlabel(f'id {i+1}', fontsize=12) # addition + 1 for readability
+            
+            if i+j+1 == latent_space.shape[1]-2:
+                plt.ylabel('\u0394 M_15', fontsize=12)
+            elif i+j+1 == latent_space.shape[1]-1:
+                plt.gca().invert_yaxis()
+                plt.ylabel('g band peak magnitude', fontsize=12)
+            else:
+                plt.ylabel(f'id {i+j+1+1}', fontsize=12) # addition + 1 for readability
+            
+            plt.title(f'latent space id {i+1} vs id {i+j+1+1}') # addition + 1 for readability
+            plt.colorbar(label='anomaly ranking')
+            
+            plt.savefig(f'id_{i+1}_vs_id_{i+j+1+1}.pdf', bbox_inches='tight') # addition + 1 for readability
             plt.close()
 
     return
 
 def reconstruction_graph(input_tmp, pred, split, filters=['g', 'r', 'i']):
 
-    color1 = ['seagreen', 'crimson', 'maroon']
-    color2 = ['darkgreen', 'firebrick', 'darkred']
+    color1 = ['mediumturquoise', 'crimson', 'maroon']
+    color2 = ['lightseagreen', 'firebrick', 'darkred']
 
     d = '/home/ricky/RNNAE/CNN_product/CNN_reconstruction_graph'
     create_clean_directory(d)
@@ -138,48 +195,45 @@ def reconstruction_graph(input_tmp, pred, split, filters=['g', 'r', 'i']):
             os.makedirs(f'./{lc_meta[i+split]["SN_name"]}')
             os.chdir(f'./{lc_meta[i+split]["SN_name"]}')
 
-        fig, axs = plt.subplots(3, figsize=(12, 18))
+        fig, axs = plt.subplots(3, figsize=(8, 16))
 
         fig.suptitle('Images of CNN')
-        axs[0].set_title('input test image')
-        axs[1].set_title('reconstructed test image')
-        axs[2].set_title('difference')
+        axs[0].set_title('Input Test Image')
+        axs[1].set_title('Reconstructed Test Image')
+        axs[2].set_title('Difference between Images')
 
-        a0 = axs[0].imshow(input_tmp[i].reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG')
-        a1 = axs[1].imshow(pred[i].reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG')
-        a2 = axs[2].imshow((input_tmp[i] - pred[i]).reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG')
+        a = []
+        a.append(axs[0].imshow(input_tmp[i].reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG'))
+        a.append(axs[1].imshow(pred[i].reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG'))
+        a.append(axs[2].imshow((input_tmp[i] - pred[i]).reshape(96,96).T, interpolation='nearest', aspect='auto', cmap='BrBG'))
 
-        fig.colorbar(a0, ax=axs[0])
-        fig.colorbar(a1, ax=axs[1])
-        fig.colorbar(a2, ax=axs[2])
+        for j in range(3):
+            plt.colorbar(a[j], ax=axs[j]).set_label('Normalized Absolute Magnitude')
+            axs[j].set_xlabel('Timestep')
 
         fig.savefig(f'./{lc_meta[i+split]["SN_name"]}.pdf', bbox_inches='tight')
-
         plt.close()
 
+        fig, axs = plt.subplots(1, 3, figsize=(18, 5))
+        fig.suptitle(f'{lc_meta[i+split]["SN_name"]}, type {lc_meta[i+split]["type"]}', fontsize=15)
+
         for j, filter in enumerate(filters):
-            fig = plt.figure(figsize=(12, 8))
-            ax = fig.add_subplot(1, 1, 1)
 
-            plt.gca().invert_yaxis()
+            axs[j].set_xlabel('Timestep', fontsize=12)
+            axs[j].set_ylabel('Normalized Absolute Magnitude', fontsize=12)
 
-            # And a corresponding grid
-            ax.grid(which='major', alpha=0.8)
-            ax.grid(which='minor', alpha=0.3)
+            axs[j].invert_yaxis()
 
-            plt.xlabel('Timestep', fontsize=15)
-            plt.ylabel('Normalized Absolute Magnitude', fontsize=15)
+            axs[j].set_title(f'{filter} band', fontsize=12)
 
-            plt.title(f'{lc_meta[i+split]["SN_name"]}, {lc_meta[i+split]["type"]}, {filter}')
-
-            plt.scatter(np.linspace(0, 96, 96), input_tmp[i][:,j,:], s=2, marker='o', color=color1[j], label=f'test data'.format('o'))
-            plt.scatter(np.linspace(0, 96, 96), pred[i][:,j,:], s=12, marker='X', color=color2[j], label=f'reconstruction'.format('X'))
+            axs[j].scatter(np.linspace(0, 96, 96), input_tmp[i][:,j,:], s=4, marker='o', color=color1[j], label=f'test data'.format('o'))
+            axs[j].scatter(np.linspace(0, 96, 96), pred[i][:,j,:], s=16, marker='X', color=color2[j], label=f'reconstruction'.format('X'))
             
-            plt.legend()
+            axs[j].grid()
+            axs[j].legend()
 
-            plt.savefig(f'./{lc_meta[i+split]["SN_name"]}_{filter}_band.pdf')
-
-            plt.close()
+        plt.savefig(f'./{lc_meta[i+split]["SN_name"]}_lc.pdf', bbox_inches='tight')
+        plt.close()
 
     return
 
@@ -223,12 +277,14 @@ def main():
     latent_space = encoder.predict([input[0], input_meta[0]], verbose=1)
     print(latent_space.shape)
 
-    anomaly_id = isolation_forest(latent_space, 10000, 0)
+    anomaly_id = isolation_forest(latent_space, 1000, 0)
+    cdf(anomaly_id, 0)
+    
     latent_space_graph(latent_space, anomaly_id, split=0)
 
     '''latent_space_concatentate = latent_space_concatenation(latent_space, ['t_normalised_noise', 'no_near_peak'], split=0)
 
-    anomaly_id = isolation_forest(latent_space_concatentate, 10000, 0)
+    anomaly_id = isolation_forest(latent_space_concatentate, 1000, 0)
     latent_space_graph(latent_space_concatentate, anomaly_id, split=0)'''
 
     print('End of CNN_predict.py')

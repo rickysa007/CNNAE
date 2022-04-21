@@ -49,10 +49,11 @@ def pht_conversion(lc_tmp, lc_meta_tmp):
 
     return lc_conv_tmp
 
-def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv):
+def avoid_duplicate_name(lc_meta_SDSS, lc_meta_SDSS_p):
 
-    SN_name_merged = [lc_meta_merged[i]['SN_name'] for i in range(len(lc_meta_merged))]
-    SN_name_SDSS = [lc_meta_SDSS[i]['SN_name'] for i in range(len(lc_meta_SDSS))]
+    lc_meta_merged_tmp = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))
+
+    SN_name_merged = [lc_meta_merged_tmp[i]['SN_name'] for i in range(len(lc_meta_merged_tmp))]
     SN_name_SDSS_p = [lc_meta_SDSS_p[i]['SN_name'] for i in range(len(lc_meta_SDSS_p))]
 
     seen = set()
@@ -64,9 +65,25 @@ def comparison_graph(lc_meta_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_S
         else:
             seen.add(x)
 
+    for i, elemi in enumerate(SN_name_SDSS_p):
+        for j, elemj in enumerate(dupe_SN):
+            if elemi == elemj:
+                lc_meta_SDSS_p[i]['SN_name'] = f'{elemi}_prime'
+
+    return lc_meta_SDSS_p, dupe_SN
+
+def comparison_graph(dupe_SN, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv):
+
+    SN_name_SDSS = [lc_meta_SDSS[i]['SN_name'] for i in range(len(lc_meta_SDSS))]
+    SN_name_SDSS_p = [lc_meta_SDSS_p[i]['SN_name'] for i in range(len(lc_meta_SDSS_p))]
+
+    dupe_SN_p = []
+    for i, elem in enumerate(dupe_SN):
+        dupe_SN_p.append(f'{elem}_prime')
+
     dupe_SDSS   = [id for id, x in enumerate(SN_name_SDSS) if x in dupe_SN]
-    dupe_SDSS_p = [id for id, x in enumerate(SN_name_SDSS_p) if x in dupe_SN]
-    print(dupe_SDSS)
+    dupe_SDSS_p = [id for id, x in enumerate(SN_name_SDSS_p) if x in dupe_SN_p]
+
     print(dupe_SN)
 
     for i in range(len(dupe_SN)):
@@ -135,13 +152,15 @@ def main():
             print(f'{i}, {len(lc_SDSS[i][0])}')'''
 
     lc_SDSS_merged = np.concatenate((lc_SDSS, lc_conv))
+
+    lc_meta_SDSS_p, dupe_SN = avoid_duplicate_name(lc_meta_SDSS, lc_meta_SDSS_p)
     lc_meta_SDSS_merged = np.concatenate((lc_meta_SDSS, lc_meta_SDSS_p))
 
     print(f'Shape of light curves after conversion is {lc_SDSS_merged.shape}')
 
     create_clean_directory(f'{pp}/pht_conv_graph')
     os.chdir(f'{pp}/pht_conv_graph')
-    comparison_graph(lc_meta_SDSS_merged, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv)
+    comparison_graph(dupe_SN, lc_meta_SDSS, lc_meta_SDSS_p, lc_SDSS, lc_SDSS_p, lc_conv)
 
     create_clean_directory(f'{pp}/conv_npy')
     np.save(f'{pp}/conv_npy/lc.npy', np.array(lc_SDSS_merged, dtype=object))
